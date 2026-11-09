@@ -316,7 +316,10 @@ export function ActionView(props: {
           {tooLow && (
             <div class="box warn">
               <span>Your Wiro balance is ${balance?.toFixed(2)} and this run costs {payLabel}.</span>
-              <button class="btn sm" onClick={() => platform.openTab(`${config.site}/panel/wallet/deposit/credit-card`)}>Add funds on wiro.ai <Icon.external /></button>
+              {/* The Mac App Store version may not point to a purchase outside the app (App Store guideline 3.1.3(f)). */}
+              {platform.name !== 'safari' && (
+                <button class="btn sm" onClick={() => platform.openTab(`${config.site}/panel/wallet/deposit/credit-card`)}>Add funds on wiro.ai <Icon.external /></button>
+              )}
             </div>
           )}
           <button class="btn pri wide" disabled={missing.length > 0 || tooLow} onClick={run}>

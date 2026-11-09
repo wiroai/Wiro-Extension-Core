@@ -12,6 +12,7 @@ export const DEFAULT_CATALOG: Catalog = {
     { id: 'upscale', kind: 'image', group: 1, label: 'Upscale…', categories: ['upscale'], prompt: 'hidden' },
     { id: 'restore', kind: 'image', group: 1, label: 'Restore photo…', categories: ['restoration'], prompt: 'hidden' },
     { id: 'remove-background', kind: 'image', group: 1, label: 'Remove background', categories: ['background-removal'], prompt: 'hidden' },
+    { id: 'blur-faces', kind: 'image', group: 1, label: 'Blur faces', categories: ['face-blur'], prompt: 'hidden' },
     { id: 'find-objects', kind: 'image', group: 1, label: 'Find objects…', categories: ['object-detection'], prompt: 'optional', promptHint: 'What to find, for example: every bicycle' },
     { id: 'generate-3d', kind: 'image', group: 1, label: 'Generate 3D model…', categories: ['3d-generation'], prompt: 'hidden' },
     { id: 'ask-image', kind: 'image', group: 2, label: 'Ask about this image…', categories: ['image-to-text', 'partner-llm'], prompt: 'optional', promptHint: 'Ask anything, or leave empty for a description' },

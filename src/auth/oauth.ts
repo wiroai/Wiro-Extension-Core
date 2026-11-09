@@ -9,13 +9,24 @@ import { createPkce, randomString } from './pkce.js';
 
 const CLIENT_KEY = 'wiro.oauth.client';
 const TOKENS_KEY = 'wiro.oauth.tokens';
+const PENDING_KEY = 'wiro.oauth.pending';
 /** Refresh this long before the access token runs out. */
 const EXPIRY_SKEW_MS = 60_000;
+/** A sign-in started longer ago than this has to start again. */
+const PENDING_MAX_AGE_MS = 15 * 60_000;
 
 interface StoredClient {
   clientId: string;
   redirectUri: string;
   issuer: string;
+}
+
+interface PendingSignIn {
+  state: string;
+  verifier: string;
+  clientId: string;
+  redirectUri: string;
+  startedAt: number;
 }
 
 export interface StoredTokens {
@@ -47,11 +58,39 @@ export class OAuth implements TokenSource {
     return Boolean(tokens && tokens.issuer === this.config.issuer && (tokens.refreshToken || tokens.expiresAt > Date.now()));
   }
 
-  /** Runs the whole flow: register if needed, open wiro.ai, trade the code for tokens. */
-  async signIn(): Promise<void> {
+  /**
+   * Runs the whole flow: register if needed, open wiro.ai, trade the code for
+   * tokens. Resolves 'pending' when the browser finishes the sign-in elsewhere
+   * (Safari: the background catches the redirect in a tab); the tokens then
+   * show up through onSignInChanged.
+   */
+  async signIn(): Promise<'done' | 'pending'> {
+    const url = await this.beginSignIn();
+    let finalUrl: string | undefined;
+    try {
+      finalUrl = await this.platform.launchAuth(url);
+    } catch (error) {
+      await this.platform.session.remove(PENDING_KEY);
+      throw new SignInError(error instanceof Error && /cancel|closed|did not approve/i.test(error.message)
+        ? 'The sign-in window was closed before it finished.'
+        : 'The sign-in window could not be opened.');
+    }
+    if (finalUrl === undefined) return 'pending';
+    await this.completeSignIn(finalUrl);
+    return 'done';
+  }
+
+  /**
+   * First half of the flow: the authorize URL to open. The PKCE verifier and
+   * state wait in session storage, so the second half can run in another
+   * page, such as the background after a popup closed.
+   */
+  async beginSignIn(): Promise<string> {
     const client = await this.client();
     const pkce = await createPkce();
     const state = randomString(32);
+    const pending: PendingSignIn = { state, verifier: pkce.verifier, clientId: client.clientId, redirectUri: client.redirectUri, startedAt: Date.now() };
+    await this.platform.session.set(PENDING_KEY, pending);
     const url = new URL(endpoints(this.config).authorize);
     url.search = new URLSearchParams({
       response_type: 'code',
@@ -63,17 +102,18 @@ export class OAuth implements TokenSource {
       scope: this.config.scope,
       resource: this.config.resource,
     }).toString();
+    return url.toString();
+  }
 
-    let finalUrl: string;
-    try {
-      finalUrl = await this.platform.launchAuth(url.toString());
-    } catch (error) {
-      throw new SignInError(error instanceof Error && /cancel|closed|did not approve/i.test(error.message)
-        ? 'The sign-in window was closed before it finished.'
-        : 'The sign-in window could not be opened.');
+  /** Second half: checks the redirect wiro.ai sent back and trades its code for tokens. */
+  async completeSignIn(finalUrl: string): Promise<void> {
+    const pending = await this.platform.session.get<PendingSignIn>(PENDING_KEY);
+    if (!pending || Date.now() - pending.startedAt > PENDING_MAX_AGE_MS) {
+      throw new SignInError('This sign-in has expired. Start it again from the Wiro panel.');
     }
     const answer = new URL(finalUrl).searchParams;
-    if (answer.get('state') !== state) throw new SignInError('The sign-in answer did not match. Try again.');
+    if (answer.get('state') !== pending.state) throw new SignInError('The sign-in answer did not match. Try again.');
+    await this.platform.session.remove(PENDING_KEY);
     const iss = answer.get('iss');
     if (iss && iss !== this.config.issuer) throw new SignInError('The sign-in answer came from an unexpected server.');
     const error = answer.get('error');
@@ -87,12 +127,19 @@ export class OAuth implements TokenSource {
     const tokens = await this.tokenRequest({
       grant_type: 'authorization_code',
       code,
-      redirect_uri: client.redirectUri,
-      client_id: client.clientId,
-      code_verifier: pkce.verifier,
+      redirect_uri: pending.redirectUri,
+      client_id: pending.clientId,
+      code_verifier: pending.verifier,
       resource: this.config.resource,
-    }, client.clientId);
+    }, pending.clientId);
     if (!tokens) throw new SignInError('wiro.ai did not accept the sign-in code. Try again.');
+  }
+
+  /** Calls back when this browser signs in or out, from any page of the extension. */
+  onSignInChanged(listener: (signedIn: boolean) => void): () => void {
+    return this.platform.storage.onChanged(changes => {
+      if (TOKENS_KEY in changes) listener(Boolean(changes[TOKENS_KEY]));
+    });
   }
 
   async signOut(): Promise<void> {

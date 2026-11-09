@@ -7,6 +7,9 @@ import { validCatalog } from '../src/catalog/catalog.js';
 import { DEFAULT_CATALOG } from '../src/catalog/default-catalog.js';
 import { buildMenus, jobFromClick, type MenuItem } from '../src/background/menus.js';
 import type { ModelDetail, ModelParameter } from '../src/types.js';
+import { OAuth } from '../src/auth/oauth.js';
+import { DEFAULT_CONFIG } from '../src/config.js';
+import type { KeyValueStore, Platform } from '../src/platform.js';
 
 function param(id: string, type: string, extra: Partial<ModelParameter> = {}): ModelParameter {
   return { id, type, label: id, required: false, options: [], advanced: false, ...extra };
@@ -22,6 +25,54 @@ describe('pkce', () => {
   });
   it('makes verifiers from the unreserved set', () => {
     expect(randomString(64)).toMatch(/^[A-Za-z0-9._~-]{64}$/);
+  });
+});
+
+function memoryStore(): KeyValueStore {
+  const data = new Map<string, unknown>();
+  const listeners = new Set<(changes: Record<string, unknown>) => void>();
+  const tell = (changes: Record<string, unknown>) => listeners.forEach(listener => listener(changes));
+  return {
+    get: async <T>(key: string) => data.get(key) as T | undefined,
+    set: async (key, value) => { data.set(key, value); tell({ [key]: value }); },
+    remove: async key => { data.delete(key); tell({ [key]: undefined }); },
+    onChanged: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+  };
+}
+
+describe('oauth', () => {
+  it('finishes a sign-in in another page, once', async () => {
+    let opened = '';
+    const platform: Platform = {
+      name: 'safari', version: '0.1.0', storage: memoryStore(), session: memoryStore(), clientName: 'Wiro for Safari',
+      redirectUri: () => 'https://wiro.ai/extension/callback',
+      launchAuth: async url => { opened = url; return undefined; },
+      openTab: () => {},
+    };
+    const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).endsWith('/register')) return new Response(JSON.stringify({ client_id: 'c1' }), { status: 201 });
+      if (String(url).endsWith('/token')) {
+        const form = new URLSearchParams(String(init?.body));
+        if (form.get('code') !== 'abc' || !form.get('code_verifier')) return new Response('{"error":"invalid_grant"}', { status: 400 });
+        return new Response(JSON.stringify({ access_token: 'wiro_at_x', refresh_token: 'wiro_rt_y', expires_in: 3600 }), { status: 200 });
+      }
+      return new Response('{}', { status: 404 });
+    }) as typeof fetch;
+
+    const panel = new OAuth(platform, DEFAULT_CONFIG, fetchImpl);
+    const seen: boolean[] = [];
+    panel.onSignInChanged(value => seen.push(value));
+    expect(await panel.signIn()).toBe('pending');
+
+    // The background has its own OAuth object; only storage is shared.
+    const background = new OAuth(platform, DEFAULT_CONFIG, fetchImpl);
+    const state = new URL(opened).searchParams.get('state') ?? '';
+    await expect(background.completeSignIn('https://wiro.ai/extension/callback?code=abc&state=wrong')).rejects.toThrow('did not match');
+    const callback = `https://wiro.ai/extension/callback?code=abc&state=${state}&iss=${encodeURIComponent(DEFAULT_CONFIG.issuer)}`;
+    await background.completeSignIn(callback);
+    expect(await panel.isSignedIn()).toBe(true);
+    expect(seen).toEqual([true]);
+    await expect(background.completeSignIn(callback)).rejects.toThrow('expired');
   });
 });
 

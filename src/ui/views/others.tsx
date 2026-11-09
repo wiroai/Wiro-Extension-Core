@@ -8,13 +8,16 @@ import { Icon, InputCard, Outputs, fileNameOf, hostOf, saveFile } from '../compo
 
 export function SignInView(props: { services: Services; onSignedIn: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string>();
+  const inTab = props.services.platform.name === 'safari';
   async function signIn() {
     setBusy(true);
     setError(undefined);
     try {
-      await props.services.oauth.signIn();
-      props.onSignedIn();
+      const result = await props.services.oauth.signIn();
+      if (result === 'done') props.onSignedIn();
+      else setWaiting(true);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -26,9 +29,10 @@ export function SignInView(props: { services: Services; onSignedIn: () => void }
       <img src="icons/icon-128.png" alt="" />
       <h3>Sign in to Wiro</h3>
       <p>Run Wiro AI models on images, videos, audio and text from any page. You see the price before each run, and runs are paid from your Wiro wallet.</p>
-      <button class="btn pri wide" disabled={busy} onClick={signIn}>{busy ? 'Waiting for wiro.ai…' : 'Sign in with Wiro'}</button>
+      <button class="btn pri wide" disabled={busy} onClick={signIn}>{busy ? 'Waiting for wiro.ai…' : waiting ? 'Open the sign-in again' : 'Sign in with Wiro'}</button>
+      {waiting && <div class="box" style="width:100%">Finish signing in on the wiro.ai tab. The Wiro panel signs in by itself when you are done.</div>}
       {error && <div class="box err" style="width:100%">{error}</div>}
-      <p class="fine">Opens wiro.ai in a small window. New to Wiro? You can create an account there. No API key needed.</p>
+      <p class="fine">Opens wiro.ai in {inTab ? 'a new tab' : 'a small window'}. New to Wiro? You can create an account there. No API key needed.</p>
     </div>
   );
 }

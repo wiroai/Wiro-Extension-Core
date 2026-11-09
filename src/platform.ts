@@ -25,9 +25,11 @@ export interface Platform {
   clientName: string;
   /**
    * Opens the sign-in window at `url` and resolves with the URL the
-   * authorization server redirected to (it carries the code).
+   * authorization server redirected to (it carries the code). Resolves with
+   * undefined when the browser finishes the sign-in elsewhere: Safari has no
+   * identity API, so it opens a tab and its background catches the redirect.
    */
-  launchAuth(url: string): Promise<string>;
+  launchAuth(url: string): Promise<string | undefined>;
   /** Opens a link in a new tab. */
   openTab(url: string): void;
 }

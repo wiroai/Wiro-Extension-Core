@@ -56,10 +56,16 @@ function App({ services }: { services: Services }) {
     void services.catalog().then(setCatalog);
     void oauth.isSignedIn().then(setSignedIn);
     void platform.session.get<Job>(JOB_KEY).then(job => job && openJob(job));
-    return platform.session.onChanged(changes => {
+    // Sign-in can finish in another page (Safari's background) or end in another window.
+    const stopAuth = oauth.onSignInChanged(setSignedIn);
+    const stopJobs = platform.session.onChanged(changes => {
       const job = changes[JOB_KEY] as Job | undefined;
       if (job) void openJob(job);
     });
+    return () => {
+      stopAuth();
+      stopJobs();
+    };
   }, []);
 
   useEffect(() => {

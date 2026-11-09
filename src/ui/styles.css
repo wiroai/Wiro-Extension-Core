@@ -32,7 +32,7 @@ button { font: inherit; color: inherit; }
 a { color: inherit; }
 :focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 
-.wp { padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 11px; min-height: 100vh; }
+.wp { padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 11px; min-height: 100vh; max-width: 480px; margin: 0 auto; }
 .top { display: flex; align-items: center; gap: 8px; }
 .ws { font-weight: 550; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bal { margin-left: auto; font-family: var(--mono); font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--bg-warm); border: 1px solid var(--border); color: var(--ink2); white-space: nowrap; }

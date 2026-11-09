@@ -90,18 +90,44 @@ export function ModelButton({ model, onClick, hint }: { model?: ModelSummary; on
       <span class="mi">{initials(model?.title ?? '?')}</span>
       <span class="mt">
         <b>{model?.title ?? 'Choose a model'}</b>
-        <span>{model ? `${ownerOf(model.slug)} · ${shortPricing(model)}` : hint}</span>
+        <span>{model ? <>{ownerOf(model.slug)} · {shortPricing(model)} <OfferBadge percent={model.discountPercent} /></> : hint}</span>
       </span>
       <span class="ch">Change ▾</span>
     </button>
   );
 }
 
+/** The caller's offer on a model, as wiro.ai shows it beside the name. */
+export function OfferBadge({ percent }: { percent?: number }) {
+  if (!percent) return null;
+  return <span class="offer" title="Your discount comes off the part of a charge paid from deposits.">{Number(percent.toFixed(2))}% off</span>;
+}
+
+/** The price before a run: the struck list price beside the new one when there is an offer. */
 export function PriceBox({ quote }: { quote: PriceQuote }) {
+  const options = quote.options ?? [];
   return (
     <div class="price">
-      <div class="row"><span>Price</span><strong>{quote.label}</strong></div>
+      <div class="row">
+        <span>Price <OfferBadge percent={quote.discountPercent} /></span>
+        {quote.listLabel
+          ? <strong><s>{quote.listLabel}</s> <ins>{quote.label}</ins></strong>
+          : <strong>{quote.label}</strong>}
+      </div>
       {quote.note && <p>{quote.note}</p>}
+      {options.length > 1 && (
+        <details class="price-options">
+          <summary>All prices ({options.length})</summary>
+          <ul>
+            {options.map((option, index) => (
+              <li key={index} class={option.current ? 'cur' : undefined} aria-current={option.current ? 'true' : undefined}>
+                <span class="c">{option.conditions.length > 0 ? option.conditions.join(' · ') : 'Any settings'}{option.note ? <small>{option.note}</small> : null}</span>
+                <span class="p">{option.price}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

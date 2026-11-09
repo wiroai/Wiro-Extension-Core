@@ -14,7 +14,7 @@ export const DEFAULT_CATALOG: Catalog = {
     { id: 'remove-background', kind: 'image', group: 1, label: 'Remove background', categories: ['background-removal'], prompt: 'hidden' },
     { id: 'find-objects', kind: 'image', group: 1, label: 'Find objects…', categories: ['object-detection'], prompt: 'optional', promptHint: 'What to find, for example: every bicycle' },
     { id: 'generate-3d', kind: 'image', group: 1, label: 'Generate 3D model…', categories: ['3d-generation'], prompt: 'hidden' },
-    { id: 'ask-image', kind: 'image', group: 2, label: 'Ask about this image…', categories: ['image-to-text'], prompt: 'optional', promptHint: 'Ask anything, or leave empty for a description' },
+    { id: 'ask-image', kind: 'image', group: 2, label: 'Ask about this image…', categories: ['image-to-text', 'partner-llm'], prompt: 'optional', promptHint: 'Ask anything, or leave empty for a description' },
     { id: 'extract-text', kind: 'image', group: 2, label: 'Extract text', categories: ['ocr'], prompt: 'hidden' },
     { id: 'translate-image', kind: 'image', group: 2, label: 'Translate text in image…', categories: ['translate'], prompt: 'hidden' },
     { id: 'product-ad', kind: 'image', group: 3, label: 'Make a product ad…', categories: ['product-ads'], prompt: 'optional' },
@@ -28,12 +28,12 @@ export const DEFAULT_CATALOG: Catalog = {
     { id: 'edit-video', kind: 'video', group: 1, label: 'Edit video…', categories: ['video-to-video'], prompt: 'required', promptHint: 'What should change? For example: turn the road into fresh snow' },
     { id: 'upscale-video', kind: 'video', group: 1, label: 'Upscale video…', categories: ['upscale'], prompt: 'hidden' },
     { id: 'add-music', kind: 'video', group: 1, label: 'Add music…', categories: ['music-generation'], prompt: 'optional', promptHint: 'Mood, for example: calm piano' },
-    { id: 'ask-video', kind: 'video', group: 2, label: 'Ask about this video…', categories: ['video-to-text'], prompt: 'optional', promptHint: 'Ask anything, or leave empty for a description' },
+    { id: 'ask-video', kind: 'video', group: 2, label: 'Ask about this video…', categories: ['video-to-text', 'partner-llm'], prompt: 'optional', promptHint: 'Ask anything, or leave empty for a description' },
     { id: 'video-tools', kind: 'video', group: 3, label: 'Captions, trim, merge and tools…', categories: ['utils'], prompt: 'hidden' },
 
     // Audio
     { id: 'transcribe', kind: 'audio', group: 1, label: 'Transcribe', categories: ['speech-to-text'], prompt: 'hidden', skipLive: true },
-    { id: 'change-voice', kind: 'audio', group: 1, label: 'Change the voice…', categories: ['speech-to-speech'], prompt: 'hidden', skipLive: true },
+    { id: 'change-voice', kind: 'audio', group: 1, label: 'Change the voice…', categories: ['speech-to-speech'], exclude: ['voice-clone'], prompt: 'hidden', skipLive: true },
     { id: 'audio-tools', kind: 'audio', group: 2, label: 'Trim, fade and tools…', categories: ['utils'], prompt: 'hidden' },
 
     // Selected text
@@ -42,7 +42,7 @@ export const DEFAULT_CATALOG: Catalog = {
     { id: 'read-aloud', kind: 'selection', group: 1, label: 'Read aloud…', categories: ['text-to-speech'], prompt: 'required', skipLive: true },
     { id: 'make-song', kind: 'selection', group: 1, label: 'Make a song…', categories: ['text-to-song'], prompt: 'required' },
     { id: 'translate-text', kind: 'selection', group: 2, label: 'Translate…', categories: ['translate'], prompt: 'required' },
-    { id: 'summarize', kind: 'selection', group: 2, label: 'Summarize or rewrite…', categories: ['chat'], prompt: 'required', skipLive: true },
+    { id: 'summarize', kind: 'selection', group: 2, label: 'Summarize or rewrite…', categories: ['chat', 'partner-llm'], prompt: 'required', skipLive: true },
 
     // Page
     { id: 'page-video', kind: 'page', group: 1, label: 'Make a video of this page…', categories: [], agent: 'studio' },

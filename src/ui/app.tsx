@@ -99,7 +99,34 @@ function App({ services }: { services: Services }) {
   );
 }
 
+/**
+ * Text cut short with an ellipsis shows its full value in a tooltip on hover.
+ * One listener covers every truncated line, so new views need no extra code.
+ */
+export function showFullTextOnHover(root: HTMLElement): void {
+  root.addEventListener('mouseover', event => {
+    let el = event.target instanceof HTMLElement ? event.target : null;
+    for (let depth = 0; el && el !== root && depth < 4; depth++, el = el.parentElement) {
+      const style = getComputedStyle(el);
+      const clamped = !['', 'none'].includes(style.getPropertyValue('-webkit-line-clamp'));
+      if (style.textOverflow !== 'ellipsis' && !clamped) continue;
+      // A title the view set on purpose stays.
+      if (el.title && el.dataset.autoTitle !== '1') return;
+      const cut = clamped ? el.scrollHeight > el.clientHeight + 1 : el.scrollWidth > el.clientWidth;
+      if (cut) {
+        el.title = (el.textContent ?? '').trim();
+        el.dataset.autoTitle = '1';
+      } else if (el.dataset.autoTitle === '1') {
+        el.removeAttribute('title');
+        delete el.dataset.autoTitle;
+      }
+      return;
+    }
+  });
+}
+
 /** Mounts the panel into `root`. Each browser's panel page calls this with its platform. */
 export function mountPanel(root: HTMLElement, platform: Platform, config?: WiroConfig): void {
+  showFullTextOnHover(root);
   render(<App services={createServices(platform, config)} />, root);
 }

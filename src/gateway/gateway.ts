@@ -128,7 +128,40 @@ export function acceptsInput(model: ModelDetail, input: MediaKind | 'text' | 'ur
   const slots = slotsFor(model);
   if (input === 'text') return Boolean(slots.named.prompt);
   if (input === 'url') return Boolean(slots.named.url);
-  return slots.files.some(slot => slot.kind === input || (input !== 'file' && slot.kind === 'file' && slot.mode !== 'multiple'));
+  // A field of no clear kind (inputDocument, inputAll) takes media too; the
+  // action's categories already keep unrelated models out.
+  return slots.files.some(slot => slot.kind === input || (input !== 'file' && slot.kind === 'file'));
+}
+
+export type InputFit = 'full' | 'partial' | 'none';
+
+/**
+ * How well a model fits what the user clicked. `full`: the clicked item is all
+ * it needs. `partial`: it takes the item but also requires a file of another
+ * kind (a reference video, a voice clip), which the user adds by hand or from
+ * the tray. `none`: it cannot take the item.
+ */
+export function inputFit(model: ModelDetail, input: MediaKind | 'text' | 'url'): InputFit {
+  if (!acceptsInput(model, input)) return 'none';
+  const slots = slotsFor(model);
+  const positions = fileFieldPositions(slots);
+  const clickedFills = (slot: FileSlot, position: number) =>
+    input !== 'text' && input !== 'url' && position === 0
+    && (slot.kind === input || (slot.kind === 'file' && !slots.files.some(other => other.kind === input)));
+  const needsMore = positions.some(({ slot, position }) => slot.param.required && !clickedFills(slot, position));
+  return needsMore ? 'partial' : 'full';
+}
+
+/** The kinds of the extra required files, for a "needs a video too" hint. */
+export function extraRequiredKinds(model: ModelDetail, input: MediaKind | 'text' | 'url'): MediaKind[] {
+  const slots = slotsFor(model);
+  const kinds = new Set<MediaKind>();
+  for (const { slot, position } of fileFieldPositions(slots)) {
+    if (!slot.param.required) continue;
+    const filledByClick = input !== 'text' && input !== 'url' && position === 0 && slot.kind === input;
+    if (!filledByClick) kinds.add(slot.kind);
+  }
+  return [...kinds];
 }
 
 /** The file slot the clicked item goes to: the first required one of its kind, else the first of its kind. */
@@ -223,6 +256,19 @@ export function buildParams(model: ModelDetail, common: CommonValues, specific: 
     if (fitted !== undefined) params[param.id] = fitted;
   }
   return params;
+}
+
+/**
+ * The params with the model's defaults filled in, as Wiro will run them. Used
+ * to pick the price row; the request itself leaves defaults out.
+ */
+export function withDefaults(model: ModelDetail, params: Record<string, unknown>): Record<string, unknown> {
+  const full: Record<string, unknown> = { ...params };
+  for (const param of allParams(model)) {
+    if (full[param.id] !== undefined || isFileParam(param)) continue;
+    if (param.default !== undefined && param.default !== '') full[param.id] = param.default;
+  }
+  return full;
 }
 
 /** File fields in the order URLs are handed out: required ones first, then schema order. */

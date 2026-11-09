@@ -185,7 +185,8 @@ export function StudioView(props: { services: Services; job: Job; onBack: () => 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
-  const fullMessage = `${message.trim()} Keep it about ${length.replace(' s', ' seconds')}, ${format} format${
+  const base = message.trim();
+  const fullMessage = `${/[.!?]$/.test(base) ? base : `${base}.`} Keep it about ${length.replace(' s', ' seconds')}, ${format} format${
     Object.entries(extras).filter(([, on]) => on).length ? `, with ${Object.entries(extras).filter(([, on]) => on).map(([name]) => name.toLowerCase()).join(', ')}` : ''}.`;
 
   async function send() {

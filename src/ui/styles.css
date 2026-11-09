@@ -55,7 +55,8 @@ a { color: inherit; }
 .quote { padding: 10px 12px; display: grid; gap: 6px; }
 .quote q { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 .label { font-family: var(--mono); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: var(--ink3); }
-.fld { display: grid; gap: 6px; }
+.fld { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); }
+.wp > * { min-width: 0; }
 .fld > .l { font-size: 12px; font-weight: 550; color: var(--ink2); display: flex; justify-content: space-between; gap: 8px; }
 .fld > .l em { font-style: normal; font-weight: 400; color: var(--ink4); }
 .fld .help { font-size: 11.5px; color: var(--ink3); }
@@ -74,8 +75,8 @@ textarea:focus, input:focus, select:focus { border-color: var(--border-strong); 
 .mi { width: 28px; height: 28px; border-radius: 6px; background: var(--bg-stone); display: grid; place-items: center; font: 600 10.5px/1 var(--mono); color: var(--ink2); flex: none; text-transform: uppercase; }
 .mbtn .mt { flex: 1; min-width: 0; }
 .mbtn .mt b { display: block; font-weight: 550; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mbtn .mt span { font-size: 11.5px; color: var(--ink3); }
-.mbtn .ch { font-size: 12px; color: var(--ink2); }
+.mbtn .mt > span { display: block; font-size: 11.5px; color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mbtn .ch { flex: none; font-size: 12px; color: var(--ink2); white-space: nowrap; }
 details.more-settings { border-top: 1px solid var(--border); padding-top: 9px; }
 details.more-settings summary { cursor: pointer; font-size: 12.5px; color: var(--ink2); list-style: none; display: flex; justify-content: space-between; }
 details.more-settings[open] summary { margin-bottom: 10px; }
@@ -84,7 +85,21 @@ details.more-settings .fields { display: grid; gap: 10px; }
 .price .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .price .row span { font-size: 12.5px; color: var(--ink3); }
 .price .row strong { font-size: 17px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; text-align: right; }
-.price p { margin: 0; font-size: 12px; color: var(--ink3); }
+.price p { margin: 0; font-size: 12px; color: var(--ink3); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.price .row strong s { font-size: 12.5px; font-weight: 500; color: var(--ink4); text-decoration-thickness: 1px; margin-right: 2px; }
+.price .row strong ins { text-decoration: none; color: var(--green-text); }
+.offer { display: inline-block; vertical-align: 1px; margin-left: 4px; padding: 1px 5px; border-radius: 4px; background: var(--green-bg); color: var(--green-text); font: 600 10.5px/1.4 var(--mono); white-space: nowrap; }
+.price-options summary { cursor: pointer; font-size: 12px; color: var(--ink2); list-style: none; padding: 2px 0; }
+.price-options summary::-webkit-details-marker { display: none; }
+.price-options summary::after { content: ' ▾'; color: var(--ink3); }
+.price-options[open] summary::after { content: ' ▴'; }
+.price-options ul { list-style: none; margin: 6px 0 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+.price-options li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 6px 9px; border-bottom: 1px solid var(--border); font-size: 11.5px; color: var(--ink2); }
+.price-options li:last-child { border-bottom: 0; }
+.price-options li.cur { background: var(--bg-warm); color: var(--ink); font-weight: 550; }
+.price-options .c { min-width: 0; overflow-wrap: anywhere; }
+.price-options .c small { display: block; font-weight: 400; color: var(--ink3); font-size: 11px; }
+.price-options .p { font-family: var(--mono); white-space: nowrap; color: var(--ink); }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; border-radius: 8px; font: 550 13.5px/1.2 var(--sans); border: 1px solid var(--border-med); background: var(--surface); color: var(--ink); padding: 6px 14px; cursor: pointer; text-decoration: none; }
 .btn.pri { background: var(--btn-bg); color: var(--btn-ink); border-color: var(--btn-bg); }
 .btn:disabled { background: var(--btn-off-bg); color: var(--btn-off-ink); border-color: var(--border); cursor: not-allowed; }

@@ -4,11 +4,11 @@ import { addHistory, addToTray, lastModel, readTray, rememberModel } from '../se
 import type { CatalogAction } from '../../catalog/catalog.js';
 import { actionInput, actionTitle } from '../../catalog/catalog.js';
 import type { SortOrder } from '../../catalog/models.js';
-import { acceptsInput, buildParams, fileFieldPositions, missingInputs, orderedFileSlots, slotsFor, type CommonValues } from '../../gateway/gateway.js';
-import { quote, shortPricing } from '../../pricing/price.js';
+import { acceptsInput, buildParams, fileFieldPositions, missingInputs, orderedFileSlots, slotsFor, withDefaults, type CommonValues, type InputFit } from '../../gateway/gateway.js';
+import { formatUsd, quote, shortPricing } from '../../pricing/price.js';
 import type { Account, Job, MediaKind, ModelDetail, ModelSummary, TaskResult, TrayItem } from '../../types.js';
 import { CommonFields, SpecificFields } from '../components/fields.js';
-import { Icon, InputCard, ModelButton, Outputs, PriceBox, initials, ownerOf, saveFile } from '../components/common.js';
+import { Icon, InputCard, ModelButton, OfferBadge, Outputs, PriceBox, initials, ownerOf, saveFile } from '../components/common.js';
 
 type Phase = 'form' | 'running' | 'done' | 'failed';
 
@@ -34,9 +34,9 @@ export function ActionView(props: {
   const input = actionInput(action);
   const actionKey = `${action.kind}:${action.id}`;
 
-  const [sort, setSort] = useState<SortOrder>('price');
+  const [sort, setSort] = useState<SortOrder>('popular');
   const [models, setModels] = useState<ModelSummary[] | null>(null);
-  const [fits, setFits] = useState<Record<string, boolean>>({});
+  const [fits, setFits] = useState<Record<string, InputFit>>({});
   const [selected, setSelected] = useState<string>();
   const [explicitPick, setExplicitPick] = useState(false);
   const [detail, setDetail] = useState<ModelDetail>();
@@ -58,16 +58,18 @@ export function ActionView(props: {
   useEffect(() => {
     let live = true;
     setModels(null);
-    directory.list(action.categories, sort, { skipLive: action.skipLive })
+    directory.list(action.categories, sort, { skipLive: action.skipLive, exclude: action.exclude })
       .then(async list => {
         if (!live) return;
         setModels(list);
+        void directory.checkInputs(list, input, (slug, fit) => live && setFits(current => ({ ...current, [slug]: fit })));
         if (!selected) {
           const remembered = await lastModel(platform, actionKey);
-          const first = list.find(model => model.slug === remembered) ?? list[0];
-          if (first) setSelected(first.slug);
+          const pick = list.some(model => model.slug === remembered)
+            ? remembered
+            : await directory.pickDefault(action.categories, input, { skipLive: action.skipLive, exclude: action.exclude });
+          if (live && pick) setSelected(pick);
         }
-        void directory.checkInputs(list, input, (slug, ok) => live && setFits(current => ({ ...current, [slug]: ok })));
       })
       .catch(props.onError);
     return () => { live = false; };
@@ -82,8 +84,8 @@ export function ActionView(props: {
       .then(model => {
         if (!live) return;
         if (!acceptsInput(model, input) && !explicitPick && models) {
-          setFits(current => ({ ...current, [model.slug]: false }));
-          const next = models.find(candidate => candidate.slug !== model.slug && fits[candidate.slug] !== false && models.indexOf(candidate) > models.findIndex(m => m.slug === model.slug));
+          setFits(current => ({ ...current, [model.slug]: 'none' }));
+          const next = models.find(candidate => candidate.slug !== model.slug && fits[candidate.slug] !== 'none' && models.indexOf(candidate) > models.findIndex(m => m.slug === model.slug));
           if (next) {
             setSelected(next.slug);
             return;
@@ -116,10 +118,13 @@ export function ActionView(props: {
 
   const slots = useMemo(() => (detail ? slotsFor(detail) : undefined), [detail]);
   const params = useMemo(() => (detail ? buildParams(detail, values, specific) : {}), [detail, values, specific]);
-  const priceQuote = detail ? quote(detail, params, { promptChars: (values.prompt ?? '').length, mediaSeconds }) : undefined;
+  const priceQuote = detail ? quote(detail, withDefaults(detail, params), { promptChars: (values.prompt ?? '').length, mediaSeconds }) : undefined;
   const missing = detail ? missingInputs(detail, params) : [];
   const balance = props.account?.balance?.totalUsd;
-  const tooLow = typeof balance === 'number' && priceQuote?.amount !== undefined && balance < priceQuote.amount;
+  // What the run is expected to take from the wallet, after any discount.
+  const payable = priceQuote?.amount;
+  const payLabel = priceQuote?.label ?? '';
+  const tooLow = typeof balance === 'number' && payable !== undefined && balance < payable;
   const current = models?.find(model => model.slug === selected);
   const title = actionTitle(action);
 
@@ -196,7 +201,7 @@ export function ActionView(props: {
   }
 
   if (picking) {
-    const shown = (models ?? []).filter(model => fits[model.slug] !== false)
+    const shown = (models ?? []).filter(model => fits[model.slug] !== 'none')
       .filter(model => !filter || `${model.title} ${model.slug}`.toLowerCase().includes(filter.toLowerCase()));
     return (
       <>
@@ -220,7 +225,7 @@ export function ActionView(props: {
             <button class="row" aria-selected={model.slug === selected}
               onClick={() => { setExplicitPick(true); setSelected(model.slug); setPicking(false); }}>
               <span class="mi">{initials(model.title)}</span>
-              <span style="min-width:0"><div class="n">{model.title}</div><div class="o">{ownerOf(model.slug)}{fits[model.slug] ? ' · fits' : ''}</div></span>
+              <span style="min-width:0"><div class="n">{model.title}</div><div class="o">{ownerOf(model.slug)}{fits[model.slug] === 'partial' ? ' · needs another file' : ''} <OfferBadge percent={model.discountPercent} /></div></span>
               <span class="pr" title={model.pricing}>{shortPricing(model)}</span>
             </button>
           ))}
@@ -263,7 +268,7 @@ export function ActionView(props: {
           {first?.url && <button class="btn sm" onClick={() => navigator.clipboard.writeText(first.url as string)}><Icon.link />Copy link</button>}
           {first?.url && <button class="btn sm" onClick={() => addToTray(platform, { kind: first.kind === 'text' ? 'text' : (first.kind as MediaKind), url: first.url, title: first.name || title, from: 'Wiro result' })}>Add to tray</button>}
         </div>
-        <div class="box ok">Done{typeof charged === 'number' ? ` · charged $${charged.toFixed(charged < 0.01 ? 5 : 3)}` : ''}</div>
+        <div class="box ok">Done{typeof charged === 'number' ? ` · charged ${formatUsd(charged)}` : ''}</div>
         <div class="btnrow">
           <button class="btn sm" onClick={() => setPhase('form')}>Run again</button>
           <button class="btn sm" onClick={() => platform.openTab(`${config.site}/panel/task-history`)}>Task history <Icon.external /></button>
@@ -282,6 +287,9 @@ export function ActionView(props: {
         <div class="l">Model <em>{action.categories.join(' + ')}{models ? ` · ${models.length} models` : ''}</em></div>
         <ModelButton model={current} onClick={() => setPicking(true)} hint={models ? 'No model yet' : 'Loading models…'} />
       </div>
+      {models && models.length === 0 && (
+        <div class="box warn">Wiro has no models in the {action.categories.join(' or ')} {action.categories.length > 1 ? 'categories' : 'category'} yet. They show up here as soon as they are added.</div>
+      )}
       {!detail && selected && <div class="empty">Loading the model…</div>}
       {detail && slots && (
         <>
@@ -307,12 +315,12 @@ export function ActionView(props: {
           {missing.length > 0 && <div class="box warn">Fill in: {missing.map(param => param.label).join(', ')}.</div>}
           {tooLow && (
             <div class="box warn">
-              <span>Your Wiro balance is ${balance?.toFixed(2)} and this run costs {priceQuote?.label}.</span>
+              <span>Your Wiro balance is ${balance?.toFixed(2)} and this run costs {payLabel}.</span>
               <button class="btn sm" onClick={() => platform.openTab(`${config.site}/panel/wallet/deposit/credit-card`)}>Add funds on wiro.ai <Icon.external /></button>
             </div>
           )}
           <button class="btn pri wide" disabled={missing.length > 0 || tooLow} onClick={run}>
-            {title} · {priceQuote?.label ?? ''}
+            {title} · {payLabel}
           </button>
           <p class="fine">Paid from your Wiro wallet. Failed runs are not charged.</p>
         </>

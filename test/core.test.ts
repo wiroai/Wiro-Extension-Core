@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { challengeFor, randomString } from '../src/auth/pkce.js';
 import { parseSse, sseJsonMessages } from '../src/util/sse.js';
-import { buildParams, fitValue, missingInputs, slotsFor, acceptsInput } from '../src/gateway/gateway.js';
+import { buildParams, fitValue, missingInputs, slotsFor, acceptsInput, inputFit, withDefaults } from '../src/gateway/gateway.js';
 import { quote, shortPricing, priceSortKey, formatUsd } from '../src/pricing/price.js';
 import { validCatalog } from '../src/catalog/catalog.js';
 import { DEFAULT_CATALOG } from '../src/catalog/default-catalog.js';
@@ -82,10 +82,32 @@ describe('gateway', () => {
     expect(missingInputs(cv, params)).toEqual([]);
   });
 
+  it('sends a clicked image to a document field', () => {
+    // dots.ocr takes images through a document list.
+    const ocr = model([param('inputDocumentMultiple', 'multifileinput', { required: true }), param('inputDocumentUrlMultiple', 'text')]);
+    expect(acceptsInput(ocr, 'image')).toBe(true);
+    expect(inputFit(ocr, 'image')).toBe('full');
+    expect(buildParams(ocr, { files: { image: ['https://a/scan.png'] } })).toEqual({ inputDocumentUrlMultiple: 'https://a/scan.png' });
+  });
+
   it('knows what a model accepts', () => {
     expect(acceptsInput(h3, 'image')).toBe(true);
     expect(acceptsInput(h3, 'video')).toBe(false);
     expect(acceptsInput(other, 'text')).toBe(true);
+  });
+
+  it('tells a full fit from one that needs another file', () => {
+    // A reference-to-video model: takes images, but a reference video is required too.
+    const r2v = model([param('inputImageReference', 'combinefileinput'), param('inputVideo', 'combinefileinput', { required: true, label: 'reference_videos' })]);
+    expect(inputFit(h3, 'image')).toBe('full');
+    expect(inputFit(r2v, 'image')).toBe('partial');
+    expect(inputFit(r2v, 'audio')).toBe('none');
+  });
+
+  it('fills defaults for pricing', () => {
+    const kling = model([param('mode', 'select', { default: 'std', options: [{ label: 'std', value: 'std' }] }), param('duration', 'select', { default: '5', options: [] })],
+      { priceList: [{ inputs: { mode: 'std', duration: '5' }, price: 0.42, priceMethod: 'cpr' }, { inputs: { mode: 'pro', duration: '5' }, price: 0.56, priceMethod: 'cpr' }] });
+    expect(quote(kling, withDefaults(kling, {})).label).toBe('$0.42');
   });
 });
 
@@ -111,13 +133,61 @@ describe('price', () => {
   it('falls back to the summary', () => {
     expect(quote(model([], { pricing: '$0.01 / per request' }), {}).label).toBe('$0.01');
     expect(quote(model([], { pricing: '~$0.022195 per run (estimated)', estimatedCostUsd: 0.022195 }), {}).label).toBe('about $0.022');
-    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: '$0.1 to $0.6 / per request' })).toBe('$0.1 to $0.6 / run');
+    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: '$0.1 to $0.6 / per request' })).toBe('from $0.10 / run');
+    expect(priceSortKey({ slug: 'a', title: 'a', categories: [], pricing: 'Set by the run when it ends: $0.0021 per 1000 tokens' })).toBe(Number.POSITIVE_INFINITY);
     expect(priceSortKey({ slug: 'a', title: 'a', categories: [], pricing: '$0.00004 / per prompt character' })).toBe(0.00004);
   });
   it('formats dollars', () => {
     expect(formatUsd(0.2)).toBe('$0.20');
     expect(formatUsd(1.5)).toBe('$1.50');
     expect(formatUsd(0.01)).toBe('$0.01');
+  });
+  it('picks the row Wiro bills: the valid row with the highest file count', () => {
+    const edit = model([], { priceList: [
+      { inputs: { inputImage: 'QUANTITY:0' }, price: 0.03, priceMethod: 'cpr' },
+      { inputs: { inputImage: 'QUANTITY:1' }, price: 0.04, priceMethod: 'cpr' },
+      { inputs: { inputImage: 'QUANTITY:3' }, price: 0.05, priceMethod: 'cpr' },
+    ] });
+    expect(quote(edit, {}).amount).toBe(0.03);
+    expect(quote(edit, { inputImage: ['a', 'b'] }).amount).toBe(0.04);
+    expect(quote(edit, { inputImage: ['a', 'b', 'c', 'd'] }).amount).toBe(0.05);
+    expect(quote(edit, { inputImage: ['a'] }).options?.map(option => [option.conditions[0], option.current])).toEqual([
+      ['Input Image: No', false], ['Input Image: 1', true], ['Input Image: 3 or more', false],
+    ]);
+  });
+  it('takes the first row whose values all match, like Wiro', () => {
+    const rows = model([], { priceList: [
+      { inputs: { quality: 'high' }, price: 0.78, priceMethod: 'cpr' },
+      { inputs: {}, price: 0.52, priceMethod: 'cpr' },
+    ] });
+    expect(quote(rows, { quality: 'high' }).amount).toBe(0.78);
+    expect(quote(rows, { quality: 'standard' }).amount).toBe(0.52);
+  });
+  it('shows a row note instead of the sentence', () => {
+    const sulphur = model([], { priceList: [{ inputs: { resolution: '1080P' }, price: 0.06, priceMethod: 'cp-outputVideoLength', note: 'Per second $0.06 for 1080P' }] });
+    const result = quote(sulphur, { resolution: '1080P', duration: '5' });
+    expect([result.label, result.note]).toEqual(['$0.30', 'Per second $0.06 for 1080P']);
+    const free = model([], { priceList: [{ inputs: {}, price: 0, priceMethod: 'cpr', note: 'Free for now.' }] });
+    expect([quote(free, {}).label, quote(free, {}).note]).toEqual(['Free', 'Free for now.']);
+  });
+  it('bills by run time when no row matches', () => {
+    const rows = model([], { estimatedCostUsd: 0.05, priceList: [{ inputs: { resolution: '1K' }, price: 0.1, priceMethod: 'cpr' }] });
+    expect(quote(rows, { resolution: '4K' }).label).toBe('about $0.05');
+  });
+  it('shows the offer price beside the list price', () => {
+    const offer = model([], { discountPercent: 50, priceList: [{ inputs: {}, price: 0.52, priceMethod: 'cpr' }] });
+    const result = quote(offer, {});
+    expect([result.listLabel, result.label, result.amount, result.note]).toEqual(['$0.52', '$0.26', 0.26, 'Running this model on Wiro costs $0.26 in total.']);
+    // Without rows the summary's amounts are scaled the same way.
+    const summary = quote(model([], { discountPercent: 50, pricing: '$0.42 to $6.3 / per request' }), {});
+    expect([summary.listLabel, summary.label, summary.note]).toEqual(['from $0.42', 'from $0.21', 'From $0.21 to $3.15 per run, depending on the settings.']);
+  });
+  it('reads the summary when there are no rows', () => {
+    expect(quote(model([], { pricing: '$0.00004 / per prompt character. Every character of the `prompt` value counts.' }), {}, { promptChars: 66 }).label).toBe('$0.00264');
+    expect(quote(model([], { pricing: '$0.0012 per second of run time', estimatedCostUsd: 0.03 }), {}).label).toBe('about $0.03');
+    expect(quote(model([], { pricing: 'Set by the run when it ends (listed estimate $0.02): $1 per 1M input tokens' }), {}).note).toBe('$1 per 1M input tokens');
+    const video = quote(model([], { pricing: '$0.06 / per video second', pricingNotes: ['Per second $0.06 for 1080P'] }), { duration: 10 });
+    expect([video.label, video.note]).toEqual(['$0.60', 'Per second $0.06 for 1080P']);
   });
 });
 

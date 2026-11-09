@@ -24,6 +24,8 @@ export interface CatalogAction {
   promptHint?: string;
   /** Skip live (realtime) models, which a one-shot run cannot use. */
   skipLive?: boolean;
+  /** Leave out models that also carry one of these categories. */
+  exclude?: string[];
   /** Wiro Studio instead of a single model. */
   agent?: 'studio';
   /** Items with the same group sit together; a separator goes between groups. */

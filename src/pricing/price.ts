@@ -3,21 +3,19 @@ import type { ModelDetail, ModelParameter, ModelSummary, PriceRow } from '../typ
 // The price shown before a run, worked out the way Wiro bills it and worded the
 // way wiro.ai shows it.
 //
-// - The row: Wiro-Api (daemon-socket-handle-task.js) bills with the first row
-//   whose values all match the run's settings. When any row counts files
-//   (QUANTITY:n), it bills with the valid row that has the highest total count
-//   at or below what the run sends.
-// - The charge per method follows the same file: cpr is the price, cpo the price
-//   per output, cp-promptlength per prompt character, cp-audiosecondslength per
-//   second of input audio, cp-outputVideoLength per second of output video,
-//   cp-pixel per 1024 x 1024 block, and a run that matches no row is billed for
-//   its run time.
-// - The sentence follows the model page (Wiro-Web AppsPricePart): a row's note,
-//   when it has one, is shown instead of the sentence, and a discount shows the
-//   list price struck through beside the new one.
+// - The row: Wiro bills with the first row whose values all match the run's
+//   settings. When any row counts files (QUANTITY:n), it bills with the valid
+//   row that has the highest total count at or below what the run sends.
+// - The charge per method: cpr is the price, cpo the price per output,
+//   cp-promptlength per prompt character, cp-audiosecondslength per second of
+//   input audio, cp-outputVideoLength per second of output video, cp-pixel per
+//   1024 x 1024 block, and a run that matches no row is billed for its run time.
+// - The sentence follows the model page on wiro.ai: a row's note, when it has
+//   one, is shown instead of the sentence, and a discount shows the list price
+//   struck through beside the new one.
 //
-// Without price rows (get_model_schema does not return them yet) the quote reads
-// the model's price summary from Wiro-MCP.
+// For a model without price rows, the quote reads the price summary that
+// Wiro-MCP returns.
 
 export interface PriceOption {
   /** "Resolution: 768P", "Input Image: Yes"; empty for a row that always applies. */
@@ -128,7 +126,7 @@ export function shortPricing(model: ModelSummary): string {
 }
 
 // ---------------------------------------------------------------------------
-// Matching a row, the way Wiro-Api bills a run.
+// Matching a row, the way Wiro bills a run.
 
 function quantityOf(value: unknown): number | null {
   const match = /^QUANTITY:(\d+)$/.exec(String(value));

@@ -1,7 +1,6 @@
 // Where the extension talks to Wiro. Everything goes through the hosted MCP
 // server: it accepts the OAuth access token and serves CORS to any origin, so
-// the extension needs no host permissions. Wiro-Api itself does not accept the
-// token and only allows wiro.ai origins.
+// the extension needs no host permissions.
 
 export interface WiroConfig {
   /** The MCP endpoint (JSON-RPC over HTTP, stateless). */

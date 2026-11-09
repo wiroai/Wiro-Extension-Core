@@ -92,7 +92,7 @@ function detail(m) {
       }),
     })),
     pricingNotes: [...new Set(rows(m).map(r => oneLine(r.note)).filter(Boolean))],
-    // A field Wiro-MCP does not return yet; MOCK_NO_PRICELIST=1 serves what it returns today.
+    // Price rows; MOCK_NO_PRICELIST=1 serves a model without them.
     ...(process.env.MOCK_NO_PRICELIST === '1' ? {} : { priceList: rows(m) }),
   };
 }

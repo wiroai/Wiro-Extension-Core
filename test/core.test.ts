@@ -253,7 +253,14 @@ describe('catalog and menus', () => {
   it('builds one Wiro parent per kind and parses clicks', async () => {
     const items: MenuItem[] = [];
     await buildMenus({ removeAll: async () => { items.length = 0; }, create: item => { items.push(item); } }, DEFAULT_CATALOG);
-    expect(items.filter(item => item.title === 'Wiro').map(item => item.contexts?.[0])).toEqual(['image', 'video', 'audio', 'selection', 'page']);
+    // A selected text item and a media item can show together, so their titles differ.
+    expect(items.filter(item => !item.parentId).map(item => [item.contexts?.[0], item.title])).toEqual([
+      ['image', 'Wiro'],
+      ['video', 'Wiro'],
+      ['audio', 'Wiro'],
+      ['selection', 'Wiro: selected text'],
+      ['page', 'Wiro'],
+    ]);
     const job = jobFromClick({ menuItemId: 'wiro:image:make-video', srcUrl: 'https://cdn.example/a.jpg', pageUrl: 'https://site.example/' });
     expect(job).toMatchObject({ kind: 'image', actionId: 'make-video', url: 'https://cdn.example/a.jpg' });
     expect(jobFromClick({ menuItemId: 'other' })).toBeUndefined();

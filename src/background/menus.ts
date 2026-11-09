@@ -5,6 +5,9 @@ import type { ContentKind, Job } from '../types.js';
 // Builds the right-click menus from the catalog and turns a click into a Job.
 // Each content kind gets one "Wiro" item with the kind's actions under it, so
 // Chrome, Firefox and Safari all show "Wiro ▸" next to their own items.
+// A right-click on an image, video or audio clip while text is selected on the
+// page matches two kinds at once, and the browser lists both items under the
+// extension's name. The text item carries its own title so the two differ.
 
 export interface MenuItem {
   id: string;
@@ -37,6 +40,15 @@ const CONTEXTS: Record<ContentKind, string> = {
   page: 'page',
 };
 
+/** The title of each kind's top menu item. */
+export const MENU_TITLES: Record<ContentKind, string> = {
+  image: 'Wiro',
+  video: 'Wiro',
+  audio: 'Wiro',
+  selection: 'Wiro: selected text',
+  page: 'Wiro',
+};
+
 export const MORE_ID = 'more';
 export const TRAY_ID = 'tray';
 
@@ -47,7 +59,7 @@ export async function buildMenus(menus: MenusApi, catalog: Catalog): Promise<voi
     if (actions.length === 0) continue;
     const contexts = [CONTEXTS[kind]];
     const parentId = `wiro:${kind}`;
-    menus.create({ id: parentId, title: 'Wiro', contexts });
+    menus.create({ id: parentId, title: MENU_TITLES[kind], contexts });
     let group = actions[0]?.group ?? 0;
     let separators = 0;
     for (const action of actions) {

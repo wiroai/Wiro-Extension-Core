@@ -5,6 +5,7 @@ import type { Catalog, CatalogAction } from '../../catalog/catalog.js';
 import { actionsFor } from '../../catalog/catalog.js';
 import type { AgentTurn, ContentKind, HistoryEntry, Job, TaskOutput, TrayItem } from '../../types.js';
 import { Icon, InputCard, Outputs, fileNameOf, hostOf, saveFile } from '../components/common.js';
+import { MENU_TITLES } from '../../background/menus.js';
 
 export function SignInView(props: { services: Services; onSignedIn: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -53,7 +54,7 @@ export function HomeView(props: { catalog?: Catalog; onHistory: () => void; onTr
         <div style="font-weight:550">Start from the right-click menu</div>
         <ul>
           {(Object.keys(KIND_HINTS) as ContentKind[]).map(kind => (
-            <li>{KIND_HINTS[kind]}, then <b>Wiro ▸</b>
+            <li>{KIND_HINTS[kind]}, then <b>{MENU_TITLES[kind]} ▸</b>
               {props.catalog ? <span class="sub"> ({actionsFor(props.catalog, kind).length} actions)</span> : null}</li>
           ))}
         </ul>
@@ -106,7 +107,7 @@ export function TrayView(props: { services: Services; onUse: (job: Job) => void;
     <>
       <button class="back" onClick={props.onBack}>← Home</button>
       <div class="top"><div class="title">Tray</div><span class="sub" style="margin-left:auto">{items.length} items</span></div>
-      {items.length === 0 && <div class="empty">Right-click an image, video, audio clip or text and choose Wiro ▸ Add to tray. Models that take two inputs, like merging clips or a video from two images, pick them from here.</div>}
+      {items.length === 0 && <div class="empty">Right-click an image, video, audio clip or text and choose Add to tray in its Wiro menu. Models that take two inputs, like merging clips or a video from two images, pick them from here.</div>}
       <div class="tray">
         {items.map(item => (
           <div class="it" title={item.title}>

@@ -90,7 +90,7 @@ function App({ services }: { services: Services }) {
         onAccount={() => platform.openTab(`${services.config.site}/panel/account/detail`)}
         onSignOut={async () => { await oauth.signOut(); setSignedIn(false); }} />
       {notice && <div class="box err" onClick={() => setNotice(undefined)}>{notice}</div>}
-      {route.name === 'home' && <HomeView catalog={catalog} siteAccessNote={platform.name === 'safari'} onHistory={() => setRoute({ name: 'history' })} onTray={() => setRoute({ name: 'tray' })} onMore={() => undefined} />}
+      {route.name === 'home' && <HomeView catalog={catalog} siteAccess={platform.siteAccess} onHistory={() => setRoute({ name: 'history' })} onTray={() => setRoute({ name: 'tray' })} onMore={() => undefined} />}
       {route.name === 'history' && <HistoryView services={services} onBack={home} />}
       {route.name === 'tray' && <TrayView services={services} onBack={home} onUse={job => setRoute({ name: 'more', job })} />}
       {route.name === 'more' && catalog && (

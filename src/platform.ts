@@ -32,4 +32,13 @@ export interface Platform {
   launchAuth(url: string): Promise<string | undefined>;
   /** Opens a link in a new tab. */
   openTab(url: string): void;
+  /**
+   * Browsers that show an extension's right-click items only on websites the
+   * user lets it use (Safari). Whether every website is allowed, and a request
+   * for that, which must run inside a click.
+   */
+  siteAccess?: {
+    granted(): Promise<boolean>;
+    request(): Promise<boolean>;
+  };
 }

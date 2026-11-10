@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { Services } from '../services.js';
+import type { Platform } from '../../platform.js';
 import { readHistory, readTray, removeFromTray } from '../services.js';
 import type { Catalog, CatalogAction } from '../../catalog/catalog.js';
 import { actionsFor } from '../../catalog/catalog.js';
@@ -13,9 +14,14 @@ export function SignInView(props: { services: Services; onSignedIn: () => void }
   const [error, setError] = useState<string>();
   const inTab = props.services.platform.name === 'safari';
   async function signIn() {
+    // Safari: ask for every website first, while still inside the click. That one
+    // answer shows Wiro in the right-click menu everywhere and also covers the
+    // wiro.ai page that finishes the sign-in.
+    const access = props.services.platform.siteAccess?.request().catch(() => false);
     setBusy(true);
     setError(undefined);
     try {
+      await access;
       const result = await props.services.oauth.signIn();
       if (result === 'done') props.onSignedIn();
       else setWaiting(true);
@@ -32,8 +38,8 @@ export function SignInView(props: { services: Services; onSignedIn: () => void }
       <p>Run Wiro AI models on images, videos, audio and text from any page. You see the price before each run, and runs are paid from your Wiro wallet.</p>
       <button class="btn pri wide" disabled={busy} onClick={signIn}>{busy ? 'Waiting for wiro.ai…' : waiting ? 'Open the sign-in again' : 'Sign in with Wiro'}</button>
       {waiting && <div class="box" style="width:100%">Finish signing in on the wiro.ai tab. The Wiro panel signs in by itself when you are done.</div>}
-      {/* Safari asks once before the extension may run on the wiro.ai page that finishes the sign-in; without it the sign-in stops there. */}
-      {inTab && <div class="box" style="width:100%">At the end, Safari asks whether Wiro AI may use wiro.ai. Choose <b>Always Allow on This Website</b> so the sign-in can finish.</div>}
+      {/* Safari shows Wiro's right-click items only on websites it may use, and needs wiro.ai to finish the sign-in. */}
+      {inTab && <div class="box" style="width:100%">Safari asks whether Wiro AI may use websites. Choose <b>Always Allow on Every Website</b>: Wiro then shows in the right-click menu on every page, and the sign-in can finish.</div>}
       {error && <div class="box err" style="width:100%">{error}</div>}
       <p class="fine">Opens wiro.ai in {inTab ? 'a new tab' : 'a small window'}. New to Wiro? You can create an account there. No API key needed.</p>
     </div>
@@ -48,7 +54,12 @@ const KIND_HINTS: Record<ContentKind, string> = {
   page: 'Right-click an empty spot on a page',
 };
 
-export function HomeView(props: { catalog?: Catalog; siteAccessNote?: boolean; onHistory: () => void; onTray: () => void; onMore: (kind: ContentKind) => void }) {
+export function HomeView(props: { catalog?: Catalog; siteAccess?: Platform['siteAccess']; onHistory: () => void; onTray: () => void; onMore: (kind: ContentKind) => void }) {
+  // Safari shows Wiro's right-click items only on websites it may use.
+  const [allSites, setAllSites] = useState<boolean>(true);
+  useEffect(() => {
+    void props.siteAccess?.granted().then(setAllSites, () => setAllSites(false));
+  }, [props.siteAccess]);
   return (
     <>
       <div class="title">Wiro</div>
@@ -61,9 +72,11 @@ export function HomeView(props: { catalog?: Catalog; siteAccessNote?: boolean; o
           ))}
         </ul>
       </div>
-      {/* Safari shows an extension's right-click items only on websites the user lets it use. */}
-      {props.siteAccessNote && (
-        <div class="box">Safari shows Wiro in the right-click menu only on websites you allow. Click the Wiro button on any page and choose <b>Always Allow on Every Website</b>, or in Safari Settings &gt; Websites &gt; Wiro AI set other websites to Allow.</div>
+      {props.siteAccess && !allSites && (
+        <div class="box">
+          Safari shows Wiro in the right-click menu only on websites you allow.
+          <button class="btn pri wide" style="margin-top:8px" onClick={() => void props.siteAccess?.request().then(setAllSites, () => undefined)}>Allow Wiro on every website</button>
+        </div>
       )}
       <div class="btnrow">
         <button class="btn sm" onClick={props.onHistory}>History</button>

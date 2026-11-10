@@ -48,7 +48,7 @@ const KIND_HINTS: Record<ContentKind, string> = {
   page: 'Right-click an empty spot on a page',
 };
 
-export function HomeView(props: { catalog?: Catalog; onHistory: () => void; onTray: () => void; onMore: (kind: ContentKind) => void }) {
+export function HomeView(props: { catalog?: Catalog; siteAccessNote?: boolean; onHistory: () => void; onTray: () => void; onMore: (kind: ContentKind) => void }) {
   return (
     <>
       <div class="title">Wiro</div>
@@ -61,6 +61,10 @@ export function HomeView(props: { catalog?: Catalog; onHistory: () => void; onTr
           ))}
         </ul>
       </div>
+      {/* Safari shows an extension's right-click items only on websites the user lets it use. */}
+      {props.siteAccessNote && (
+        <div class="box">Safari shows Wiro in the right-click menu only on websites you allow. Click the Wiro button on any page and choose <b>Always Allow on Every Website</b>, or in Safari Settings &gt; Websites &gt; Wiro AI set other websites to Allow.</div>
+      )}
       <div class="btnrow">
         <button class="btn sm" onClick={props.onHistory}>History</button>
         <button class="btn sm" onClick={props.onTray}>Tray</button>

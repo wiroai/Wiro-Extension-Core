@@ -32,6 +32,8 @@ export function SignInView(props: { services: Services; onSignedIn: () => void }
       <p>Run Wiro AI models on images, videos, audio and text from any page. You see the price before each run, and runs are paid from your Wiro wallet.</p>
       <button class="btn pri wide" disabled={busy} onClick={signIn}>{busy ? 'Waiting for wiro.ai…' : waiting ? 'Open the sign-in again' : 'Sign in with Wiro'}</button>
       {waiting && <div class="box" style="width:100%">Finish signing in on the wiro.ai tab. The Wiro panel signs in by itself when you are done.</div>}
+      {/* Safari asks once before the extension may run on the wiro.ai page that finishes the sign-in; without it the sign-in stops there. */}
+      {inTab && <div class="box" style="width:100%">At the end, Safari asks whether Wiro AI may use wiro.ai. Choose <b>Always Allow on This Website</b> so the sign-in can finish.</div>}
       {error && <div class="box err" style="width:100%">{error}</div>}
       <p class="fine">Opens wiro.ai in {inTab ? 'a new tab' : 'a small window'}. New to Wiro? You can create an account there. No API key needed.</p>
     </div>

@@ -87,6 +87,7 @@ function App({ services }: { services: Services }) {
   return (
     <div class="wp" style="position:relative">
       <Header account={account} onHome={home} onHistory={() => setRoute({ name: 'history' })} onTray={() => setRoute({ name: 'tray' })}
+        onAccount={() => platform.openTab(`${services.config.site}/panel/account/detail`)}
         onSignOut={async () => { await oauth.signOut(); setSignedIn(false); }} />
       {notice && <div class="box err" onClick={() => setNotice(undefined)}>{notice}</div>}
       {route.name === 'home' && <HomeView catalog={catalog} onHistory={() => setRoute({ name: 'history' })} onTray={() => setRoute({ name: 'tray' })} onMore={() => undefined} />}

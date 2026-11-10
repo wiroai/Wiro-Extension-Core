@@ -37,7 +37,7 @@ export function fileNameOf(url?: string): string {
   }
 }
 
-export function Header(props: { account?: Account | null; onHistory: () => void; onTray: () => void; onSignOut: () => void; onHome: () => void }) {
+export function Header(props: { account?: Account | null; onHistory: () => void; onTray: () => void; onAccount: () => void; onSignOut: () => void; onHome: () => void }) {
   const [open, setOpen] = useState(false);
   const balance = props.account?.balance?.totalUsd;
   const workspace = props.account?.workspace;
@@ -51,6 +51,8 @@ export function Header(props: { account?: Account | null; onHistory: () => void;
         <div class="menu-pop" onClick={() => setOpen(false)}>
           <button onClick={props.onHistory}>History</button>
           <button onClick={props.onTray}>Tray</button>
+          {/* Opens the account page on wiro.ai, where the account can also be deleted (App Store guideline 5.1.1(v)). */}
+          <button onClick={props.onAccount}>Account and deletion</button>
           <button onClick={props.onSignOut}>Sign out</button>
         </div>
       )}

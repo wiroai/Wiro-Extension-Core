@@ -4,7 +4,7 @@
 
 # Wiro Extension Core: Shared Code of the Wiro AI Browser Extensions
 
-Sign-in, the Wiro MCP client, the right-click action catalog, the model gateway, pricing and the panel UI, shared by the Wiro AI extensions for Chrome, Edge, Opera, Firefox and Safari.
+Sign-in, the Wiro MCP client, the right-click action catalog, the model gateway, pricing and the panel UI, shared by the Wiro AI extensions for Chrome, Edge, Opera, Whale, Firefox and Safari.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-111111?style=for-the-badge&color=111111)](./tsconfig.json) [![Preact](https://img.shields.io/badge/UI-Preact-111111?style=for-the-badge&color=111111)](./src/ui) [![Tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-111111?style=for-the-badge&color=111111)](./test) [![License: MIT](https://img.shields.io/badge/license-MIT-111111?style=for-the-badge&color=111111)](./LICENSE)
 
@@ -41,7 +41,7 @@ Wiro Extension Core is the part of the Wiro AI browser extensions that does not 
 
 | Repository | Browsers |
 | --- | --- |
-| [Wiro-Chromium-Extension](https://github.com/wiroai/Wiro-Chromium-Extension) | Chrome, Edge, Opera, Brave and other Chromium browsers |
+| [Wiro-Chromium-Extension](https://github.com/wiroai/Wiro-Chromium-Extension) | Chrome, Edge, Opera, Whale, Brave and other Chromium browsers |
 | [Wiro-Firefox-Extension](https://github.com/wiroai/Wiro-Firefox-Extension) | Firefox 140 and later |
 | [Wiro-Safari-Extension](https://github.com/wiroai/Wiro-Safari-Extension) | Safari 16.4 and later on the Mac |
 
@@ -91,7 +91,7 @@ npm run typecheck
 
 | Repository | What it is |
 | --- | --- |
-| [Wiro-Chromium-Extension](https://github.com/wiroai/Wiro-Chromium-Extension) | Wiro AI extension for Chrome, Edge, Opera and Brave |
+| [Wiro-Chromium-Extension](https://github.com/wiroai/Wiro-Chromium-Extension) | Wiro AI extension for Chrome, Edge, Opera, Whale and Brave |
 | [Wiro-Firefox-Extension](https://github.com/wiroai/Wiro-Firefox-Extension) | Wiro AI add-on for Firefox |
 | [Wiro-Safari-Extension](https://github.com/wiroai/Wiro-Safari-Extension) | Wiro AI extension for Safari on the Mac |
 | [Wiro-MCP](https://github.com/wiroai/Wiro-MCP) | Official MCP server for Wiro AI, [`@wiro-ai/wiro-mcp` on npm](https://www.npmjs.com/package/@wiro-ai/wiro-mcp) |

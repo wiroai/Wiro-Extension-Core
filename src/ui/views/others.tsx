@@ -5,7 +5,7 @@ import { readHistory, readTray, removeFromTray } from '../services.js';
 import type { Catalog, CatalogAction } from '../../catalog/catalog.js';
 import { actionsFor } from '../../catalog/catalog.js';
 import type { AgentTurn, ContentKind, HistoryEntry, Job, TaskOutput, TrayItem } from '../../types.js';
-import { Icon, InputCard, Outputs, fileNameOf, hostOf, saveFile } from '../components/common.js';
+import { Icon, InputCard, Outputs, fileNameOf, hostOf, modelInitials, saveFile } from '../components/common.js';
 import { MENU_TITLES } from '../../background/menus.js';
 
 export function SignInView(props: { services: Services; onSignedIn: () => void }) {
@@ -166,9 +166,9 @@ export function HistoryView(props: { services: Services; onBack: () => void }) {
     return (
       <>
         <button class="back" onClick={() => setOpen(undefined)}>← History</button>
-        <div class="title">{open.actionLabel ?? open.modelTitle}</div>
+        <div class="title">{open.actionLabel ?? open.model}</div>
         <Outputs outputs={open.outputs} />
-        <div class="meta"><span>{open.modelTitle}</span><span>{new Date(open.at).toLocaleString()}</span></div>
+        <div class="meta"><span>{open.model}</span><span>{new Date(open.at).toLocaleString()}</span></div>
         {first?.url && <button class="btn pri sm" onClick={() => saveFile(first.url as string, first.name)}><Icon.download />Download</button>}
       </>
     );
@@ -183,8 +183,8 @@ export function HistoryView(props: { services: Services; onBack: () => void }) {
           const thumb = entry.outputs.find(output => output.kind === 'image' && output.url);
           return (
             <button class="row" onClick={() => setOpen(entry)}>
-              {thumb?.url ? <img src={thumb.url} alt="" style="width:28px;height:28px;border-radius:6px;object-fit:cover" /> : <span class="mi">{(entry.modelTitle ?? '?').charAt(0)}</span>}
-              <span style="min-width:0"><div class="n">{entry.actionLabel ?? entry.modelTitle}</div><div class="o">{entry.modelTitle} · {new Date(entry.at).toLocaleDateString()}</div></span>
+              {thumb?.url ? <img src={thumb.url} alt="" style="width:28px;height:28px;border-radius:6px;object-fit:cover" /> : <span class="mi">{modelInitials(entry.model)}</span>}
+              <span style="min-width:0"><div class="n">{entry.actionLabel ?? entry.model}</div><div class="o">{entry.model} · {new Date(entry.at).toLocaleDateString()}</div></span>
               <span class="pr">{typeof entry.chargedUsd === 'number' ? `$${entry.chargedUsd.toFixed(entry.chargedUsd < 0.01 ? 4 : 2)}` : ''}</span>
             </button>
           );
@@ -252,7 +252,7 @@ export function StudioView(props: { services: Services; job: Job; onBack: () => 
             {steps.map(run => (
               <div class={`step${run.state === 'completed' ? ' done' : ''}`}>
                 <span class="dot">{run.state === 'completed' ? '✓' : run.state === 'running' ? '…' : '×'}</span>
-                <span>{run.modelTitle ?? run.model ?? 'Model run'}</span>
+                <span>{run.model ?? run.modelTitle ?? 'Model run'}</span>
               </div>
             ))}
           </div>

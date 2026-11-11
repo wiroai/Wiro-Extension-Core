@@ -70,6 +70,17 @@ textarea, input[type="text"], input[type="number"], input[type="url"], select {
 }
 textarea { min-height: 64px; resize: vertical; }
 textarea:focus, input:focus, select:focus { border-color: var(--border-strong); outline: none; }
+/* Safari draws a native select as a thin bar and ignores its padding; drawn
+   by hand it matches the inputs in every browser. The caret is two
+   gradient triangles so it follows the theme's ink colour. */
+select {
+  -webkit-appearance: none; appearance: none; cursor: pointer;
+  padding-right: 30px; white-space: nowrap; text-overflow: ellipsis;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink3) 50%), linear-gradient(135deg, var(--ink3) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 12px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
 .check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 .mbtn { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border-med); background: var(--surface); border-radius: 8px; padding: 7px 10px; cursor: pointer; text-align: left; width: 100%; }
 .mi { width: 28px; height: 28px; border-radius: 6px; background: var(--bg-stone); display: grid; place-items: center; font: 600 10.5px/1 var(--mono); color: var(--ink2); flex: none; text-transform: uppercase; }
@@ -135,6 +146,12 @@ details.more-settings .fields { display: grid; gap: 10px; }
 .row[aria-disabled="true"] { opacity: .45; cursor: default; }
 .row .n { font-weight: 550; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .o { font-size: 11px; color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .o .offer { margin: 0 5px 0 0; }
+.row.model { grid-template-areas: "mi n n" "mi o pr"; row-gap: 1px; }
+.row.model .mi { grid-area: mi; }
+.row.model .n { grid-area: n; min-width: 0; }
+.row.model .o { grid-area: o; min-width: 0; }
+.row.model .pr { grid-area: pr; font-size: 11px; color: var(--ink2); }
 .row .pr { font-family: var(--mono); font-size: 11.5px; text-align: right; color: var(--ink); white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
 .empty { padding: 18px 8px; text-align: center; color: var(--ink3); font-size: 12.5px; }
 .tray { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }

@@ -5,10 +5,10 @@ import type { CatalogAction } from '../../catalog/catalog.js';
 import { actionInput, actionTitle } from '../../catalog/catalog.js';
 import type { SortOrder } from '../../catalog/models.js';
 import { acceptsInput, buildParams, fileFieldPositions, missingInputs, orderedFileSlots, slotsFor, withDefaults, type CommonValues, type InputFit } from '../../gateway/gateway.js';
-import { formatUsd, quote, shortPricing } from '../../pricing/price.js';
+import { formatUsd, quote } from '../../pricing/price.js';
 import type { Account, Job, MediaKind, ModelDetail, ModelSummary, TaskResult, TrayItem } from '../../types.js';
 import { CommonFields, SpecificFields } from '../components/fields.js';
-import { Icon, InputCard, ModelButton, OfferBadge, Outputs, PriceBox, initials, ownerOf, saveFile } from '../components/common.js';
+import { Icon, InputCard, ModelButton, ModelRow, Outputs, PriceBox, saveFile } from '../components/common.js';
 
 type Phase = 'form' | 'running' | 'done' | 'failed';
 
@@ -222,12 +222,9 @@ export function ActionView(props: {
         {models && shown.length === 0 && <div class="empty">No model in this category takes this yet.</div>}
         <div class="list">
           {shown.map(model => (
-            <button class="row" aria-selected={model.slug === selected}
-              onClick={() => { setExplicitPick(true); setSelected(model.slug); setPicking(false); }}>
-              <span class="mi">{initials(model.title)}</span>
-              <span style="min-width:0"><div class="n">{model.title}</div><div class="o">{ownerOf(model.slug)}{fits[model.slug] === 'partial' ? ' · needs another file' : ''} <OfferBadge percent={model.discountPercent} /></div></span>
-              <span class="pr" title={model.pricing}>{shortPricing(model)}</span>
-            </button>
+            <ModelRow model={model} selected={model.slug === selected}
+              note={fits[model.slug] === 'partial' ? 'needs another file' : undefined}
+              onPick={() => { setExplicitPick(true); setSelected(model.slug); setPicking(false); }} />
           ))}
         </div>
         <p class="fine">Live from Wiro's {action.categories.join(' and ')} {action.categories.length > 1 ? 'categories' : 'category'}. New models show up here on their own.</p>
@@ -245,7 +242,7 @@ export function ActionView(props: {
           <div class="spin" />
           <div>
             <div style="font-weight:550">{progress?.state === 'running' ? 'Running on Wiro' : 'Starting'}</div>
-            <div class="sub mono">{detail?.title} · {seconds} s</div>
+            <div class="sub mono">{detail?.slug} · {seconds} s</div>
           </div>
         </div>
         <div class="bar"><span /></div>
@@ -262,7 +259,7 @@ export function ActionView(props: {
       <>
         <div class="title">{title}</div>
         <Outputs outputs={result.outputs} />
-        <div class="meta"><span>{detail?.title}</span><span class="mono">{result.task.durationSeconds ? `${Math.round(result.task.durationSeconds)} s` : ''}</span></div>
+        <div class="meta"><span>{detail?.slug}</span><span class="mono">{result.task.durationSeconds ? `${Math.round(result.task.durationSeconds)} s` : ''}</span></div>
         <div class="btnrow">
           {first?.url && <button class="btn pri sm" onClick={() => saveFile(first.url as string, first.name)}><Icon.download />Download</button>}
           {first?.url && <button class="btn sm" onClick={() => navigator.clipboard.writeText(first.url as string)}><Icon.link />Copy link</button>}

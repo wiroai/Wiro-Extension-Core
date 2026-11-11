@@ -18,6 +18,11 @@ export function ownerOf(slug: string): string {
   return slug.split('/')[0] ?? slug;
 }
 
+/** Two letters for a model's tile, from the model part of its owner/slug. */
+export function modelInitials(slug: string): string {
+  return initials(slug.split('/').pop() ?? slug);
+}
+
 export function hostOf(url?: string): string {
   if (!url) return '';
   try {
@@ -86,15 +91,35 @@ export function InputCard({ job }: { job: Job }) {
   );
 }
 
+// Models go by owner/slug, as on wiro.ai and in the API. The title is the
+// model page's headline, so it sits below in small type.
+
+/** The picked model: owner/slug, then its title and price in small type. */
 export function ModelButton({ model, onClick, hint }: { model?: ModelSummary; onClick: () => void; hint?: string }) {
   return (
     <button class="mbtn" onClick={onClick}>
-      <span class="mi">{initials(model?.title ?? '?')}</span>
+      <span class="mi">{model ? modelInitials(model.slug) : '?'}</span>
       <span class="mt">
-        <b>{model?.title ?? 'Choose a model'}</b>
-        <span>{model ? <>{ownerOf(model.slug)} · {shortPricing(model)} <OfferBadge percent={model.discountPercent} /></> : hint}</span>
+        <b>{model?.slug ?? 'Choose a model'}</b>
+        {model && <span>{model.title}</span>}
+        <span>{model ? <>{shortPricing(model)} <OfferBadge percent={model.discountPercent} /></> : hint}</span>
       </span>
       <span class="ch">Change ▾</span>
+    </button>
+  );
+}
+
+/**
+ * A model in a picker list. owner/slug takes the whole first line, so it is
+ * seldom cut; the title and the price share the small second line.
+ */
+export function ModelRow({ model, selected, note, onPick }: { model: ModelSummary; selected: boolean; note?: string; onPick: () => void }) {
+  return (
+    <button class="row model" aria-selected={selected} onClick={onPick}>
+      <span class="mi">{modelInitials(model.slug)}</span>
+      <span class="n">{model.slug}</span>
+      <span class="o">{note && `${note} · `}<OfferBadge percent={model.discountPercent} />{model.title}</span>
+      <span class="pr" title={model.pricing}>{shortPricing(model)}</span>
     </button>
   );
 }

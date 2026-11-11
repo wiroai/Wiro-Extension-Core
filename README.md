@@ -17,9 +17,24 @@ Sign-in, the Wiro MCP client, the right-click action catalog, the model gateway,
 Wiro Extension Core is the part of the Wiro AI browser extensions that does not depend on the browser. Each browser repo includes it as the `core/` git submodule and adds a small platform adapter, so a fix or a new action reaches every browser at once.
 
 <p align="center">
-  <img src=".github/assets/screenshots/panel-edit.png" alt="The Wiro panel set up to edit an image, with the model, prompt, settings and price" width="30%">
-  <img src=".github/assets/screenshots/panel-models.png" alt="The model list of a category, sorted by popularity, with each model's price" width="30%">
-  <img src=".github/assets/screenshots/panel-studio.png" alt="The Wiro panel turning a page into a video with Wiro Studio" width="30%">
+  <img src=".github/assets/screenshots/01-photo-to-video.png" alt="The Wiro panel turning a photo of a dog into a video" width="49%">
+  <img src=".github/assets/screenshots/02-page-to-video.png" alt="The Wiro panel sending a page to Wiro Studio to make a video" width="49%">
+</p>
+<p align="center">
+  <img src=".github/assets/screenshots/03-brief-to-image.png" alt="The Wiro panel turning selected text into a magazine cover image" width="49%">
+  <img src=".github/assets/screenshots/04-edit-video.png" alt="The Wiro panel editing a bike video so the trail is covered in snow" width="49%">
+</p>
+<p align="center">
+  <img src=".github/assets/screenshots/05-models.png" alt="The models made for a job, sorted by price, popularity or date" width="49%">
+  <img src=".github/assets/screenshots/06-song.png" alt="The Wiro panel turning selected lines into a song" width="49%">
+</p>
+<p align="center">
+  <img src=".github/assets/screenshots/07-read-aloud.png" alt="The Wiro panel reading selected text aloud in a chosen voice" width="49%">
+  <img src=".github/assets/screenshots/08-every-action.png" alt="Every Wiro action for an image, one right-click away" width="49%">
+</p>
+<p align="center">
+  <img src=".github/assets/screenshots/09-translate.png" alt="The Wiro panel translating selected Spanish text into English" width="49%">
+  <img src=".github/assets/screenshots/10-price.png" alt="The Wiro panel showing the price of an image edit before the run" width="49%">
 </p>
 
 ## Used by

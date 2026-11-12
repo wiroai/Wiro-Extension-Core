@@ -45,6 +45,8 @@ Wiro Extension Core is the part of the Wiro AI browser extensions that does not 
 | [Wiro-Firefox-Extension](https://github.com/wiroai/Wiro-Firefox-Extension) | Firefox 140 and later |
 | [Wiro-Safari-Extension](https://github.com/wiroai/Wiro-Safari-Extension) | Safari 16.4 and later on the Mac |
 
+Install Wiro AI from the [Chrome Web Store](https://chromewebstore.google.com/detail/wiro-ai-tools-for-images/cehkhdmppbnfeahegjjkdhangjelehab) (Chrome, Brave, Vivaldi, Arc) or the [Naver Whale Store](https://store.whale.naver.com/detail/elgobhnkemhlhfakdmpijbknhehnkgle) (Whale).
+
 ## What is inside
 
 - `src/auth`: sign-in with a Wiro account through the OAuth 2.1 server at `mcp.wiro.ai` (PKCE, refresh, revoke). No API key in the browser.

@@ -45,7 +45,7 @@ Wiro Extension Core is the part of the Wiro AI browser extensions that does not 
 | [Wiro-Firefox-Extension](https://github.com/wiroai/Wiro-Firefox-Extension) | Firefox 140 and later |
 | [Wiro-Safari-Extension](https://github.com/wiroai/Wiro-Safari-Extension) | Safari 16.4 and later on the Mac |
 
-Install Wiro AI from the [Chrome Web Store](https://chromewebstore.google.com/detail/wiro-ai-tools-for-images/cehkhdmppbnfeahegjjkdhangjelehab) (Chrome, Brave, Vivaldi, Arc) or the [Naver Whale Store](https://store.whale.naver.com/detail/elgobhnkemhlhfakdmpijbknhehnkgle) (Whale).
+Install Wiro AI from the [Chrome Web Store](https://chromewebstore.google.com/detail/wiro-ai-tools-for-images/cehkhdmppbnfeahegjjkdhangjelehab) (Chrome, Brave, Vivaldi, Arc), the [Naver Whale Store](https://store.whale.naver.com/detail/elgobhnkemhlhfakdmpijbknhehnkgle) (Whale) or [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/wiro-ai/) (Firefox).
 
 ## What is inside
 

@@ -6,6 +6,8 @@
 
 Sign-in, the Wiro MCP client, the right-click action catalog, the model gateway, pricing and the panel UI, shared by the Wiro AI extensions for Chrome, Edge, Opera, Whale, Firefox and Safari.
 
+**[Install Chrome Extension](https://chromewebstore.google.com/detail/wiro-ai-tools-for-images/cehkhdmppbnfeahegjjkdhangjelehab)** · **[Install Firefox Add-on](https://addons.mozilla.org/firefox/addon/wiro-ai/)** · **[Install on Naver Whale](https://store.whale.naver.com/detail/elgobhnkemhlhfakdmpijbknhehnkgle)**
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-111111?style=for-the-badge&color=111111)](./tsconfig.json) [![Preact](https://img.shields.io/badge/UI-Preact-111111?style=for-the-badge&color=111111)](./src/ui) [![Tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-111111?style=for-the-badge&color=111111)](./test) [![License: MIT](https://img.shields.io/badge/license-MIT-111111?style=for-the-badge&color=111111)](./LICENSE)
 
 [Website](https://wiro.ai) · [Models](https://wiro.ai/models) · [Docs](https://wiro.ai/docs) · [Dashboard](https://wiro.ai/panel)

@@ -6,7 +6,7 @@
 
 Sign-in, the Wiro MCP client, the right-click action catalog, the model gateway, pricing and the panel UI, shared by the Wiro AI extensions for Chrome, Edge, Opera, Whale, Firefox and Safari.
 
-**[Install Chrome Extension](https://chromewebstore.google.com/detail/wiro-ai-tools-for-images/cehkhdmppbnfeahegjjkdhangjelehab)** · **[Install Firefox Add-on](https://addons.mozilla.org/firefox/addon/wiro-ai/)** · **[Install on Naver Whale](https://store.whale.naver.com/detail/elgobhnkemhlhfakdmpijbknhehnkgle)**
+**[Install Chrome Extension](https://chromewebstore.google.com/detail/wiro-ai-tools-for-images/cehkhdmppbnfeahegjjkdhangjelehab)** · **[Install Edge Add-on](https://microsoftedge.microsoft.com/addons/detail/wiro-ai-tools-for-images/obkibkhehpojlejdoinhlmoofalgaddg)** · **[Install Firefox Add-on](https://addons.mozilla.org/firefox/addon/wiro-ai/)** · **[Install on Naver Whale](https://store.whale.naver.com/detail/elgobhnkemhlhfakdmpijbknhehnkgle)**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-111111?style=for-the-badge&color=111111)](./tsconfig.json) [![Preact](https://img.shields.io/badge/UI-Preact-111111?style=for-the-badge&color=111111)](./src/ui) [![Tested with Vitest](https://img.shields.io/badge/tested%20with-Vitest-111111?style=for-the-badge&color=111111)](./test) [![License: MIT](https://img.shields.io/badge/license-MIT-111111?style=for-the-badge&color=111111)](./LICENSE)
 
@@ -47,7 +47,7 @@ Wiro Extension Core is the part of the Wiro AI browser extensions that does not 
 | [Wiro-Firefox-Extension](https://github.com/wiroai/Wiro-Firefox-Extension) | Firefox 140 and later |
 | [Wiro-Safari-Extension](https://github.com/wiroai/Wiro-Safari-Extension) | Safari 16.4 and later on the Mac |
 
-Install Wiro AI from the [Chrome Web Store](https://chromewebstore.google.com/detail/wiro-ai-tools-for-images/cehkhdmppbnfeahegjjkdhangjelehab) (Chrome, Brave, Vivaldi, Arc), the [Naver Whale Store](https://store.whale.naver.com/detail/elgobhnkemhlhfakdmpijbknhehnkgle) (Whale) or [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/wiro-ai/) (Firefox).
+Install Wiro AI from the [Chrome Web Store](https://chromewebstore.google.com/detail/wiro-ai-tools-for-images/cehkhdmppbnfeahegjjkdhangjelehab) (Chrome, Brave, Vivaldi, Arc), [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/wiro-ai-tools-for-images/obkibkhehpojlejdoinhlmoofalgaddg) (Edge), the [Naver Whale Store](https://store.whale.naver.com/detail/elgobhnkemhlhfakdmpijbknhehnkgle) (Whale) or [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/wiro-ai/) (Firefox).
 
 ## What is inside
 

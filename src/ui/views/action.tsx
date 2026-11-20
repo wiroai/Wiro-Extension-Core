@@ -8,7 +8,9 @@ import { acceptsInput, buildParams, fileFieldPositions, missingInputs, orderedFi
 import { formatUsd, quote } from '../../pricing/price.js';
 import type { Account, Job, MediaKind, ModelDetail, ModelSummary, TaskResult, TrayItem } from '../../types.js';
 import { CommonFields, SpecificFields } from '../components/fields.js';
-import { Icon, InputCard, ModelButton, ModelRow, Outputs, PriceBox, saveFile } from '../components/common.js';
+import { Icon, InputCard, ModelButton, ModelRow, Outputs, PriceBox, RefusalBox, saveFile } from '../components/common.js';
+import { WiroToolError } from '../../wiro/api.js';
+import type { ControlsRefusal } from '../../wiro/refusal.js';
 
 type Phase = 'form' | 'running' | 'done' | 'failed';
 
@@ -48,6 +50,7 @@ export function ActionView(props: {
   const [progress, setProgress] = useState<TaskResult>();
   const [result, setResult] = useState<TaskResult>();
   const [message, setMessage] = useState<string>();
+  const [refusal, setRefusal] = useState<ControlsRefusal>();
   const [mediaSeconds, setMediaSeconds] = useState<number>();
   const [tray, setTray] = useState<TrayItem[]>([]);
   const [startedAt, setStartedAt] = useState(0);
@@ -152,6 +155,7 @@ export function ActionView(props: {
     if (!detail) return;
     setPhase('running');
     setMessage(undefined);
+    setRefusal(undefined);
     setProgress(undefined);
     setStartedAt(Date.now());
     const controller = new AbortController();
@@ -183,6 +187,11 @@ export function ActionView(props: {
       }
       setPhase('failed');
       setMessage(error instanceof Error ? error.message : String(error));
+      // A Model Access rule or a spend limit: shown once, here, with the page that changes it.
+      if (error instanceof WiroToolError && error.refusal) {
+        setRefusal(error.refusal);
+        return;
+      }
       props.onError(error);
     }
   }
@@ -279,7 +288,8 @@ export function ActionView(props: {
       <button class="back" onClick={props.onBack}>← Home</button>
       <div class="title">{title}</div>
       {job.kind !== 'page' || input === 'url' ? <InputCard job={job} /> : null}
-      {phase === 'failed' && message && <div class="box err">{message}</div>}
+      {phase === 'failed' && refusal && <RefusalBox refusal={refusal} site={config.site} openTab={url => platform.openTab(url)} />}
+      {phase === 'failed' && !refusal && message && <div class="box err">{message}</div>}
       <div class="fld">
         <div class="l">Model <em>{action.categories.join(' + ')}{models ? ` · ${models.length} models` : ''}</em></div>
         <ModelButton model={current} onClick={() => setPicking(true)} hint={models ? 'No model yet' : 'Loading models…'} />

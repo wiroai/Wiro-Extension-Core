@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks';
 import type { Account, Job, ModelSummary, TaskOutput } from '../../types.js';
 import { shortPricing } from '../../pricing/price.js';
 import type { PriceQuote } from '../../pricing/price.js';
+import type { ControlsRefusal } from '../../wiro/refusal.js';
 
 export const Icon = {
   dots: () => <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>,
@@ -155,6 +156,20 @@ export function PriceBox({ quote }: { quote: PriceQuote }) {
           </ul>
         </details>
       )}
+    </div>
+  );
+}
+
+/**
+ * Work that a Model Access rule or a spend limit stopped: Wiro's sentence, who
+ * can change it, and a button to the page on wiro.ai that shows it.
+ */
+export function RefusalBox({ refusal, site, openTab }: { refusal: ControlsRefusal; site: string; openTab: (url: string) => void }) {
+  return (
+    <div class="box err" role="alert">
+      <span>{refusal.message}</span>
+      <span>{refusal.help}</span>
+      <button class="btn sm" onClick={() => openTab(`${site}${refusal.path}`)}>{refusal.label} <Icon.external /></button>
     </div>
   );
 }

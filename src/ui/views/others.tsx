@@ -5,7 +5,9 @@ import { readHistory, readTray, removeFromTray } from '../services.js';
 import type { Catalog, CatalogAction } from '../../catalog/catalog.js';
 import { actionsFor } from '../../catalog/catalog.js';
 import type { AgentTurn, ContentKind, HistoryEntry, Job, TaskOutput, TrayItem } from '../../types.js';
-import { Icon, InputCard, Outputs, fileNameOf, hostOf, modelInitials, saveFile } from '../components/common.js';
+import { Icon, InputCard, Outputs, RefusalBox, fileNameOf, hostOf, modelInitials, saveFile } from '../components/common.js';
+import { WiroToolError } from '../../wiro/api.js';
+import type { ControlsRefusal } from '../../wiro/refusal.js';
 import { MENU_TITLES } from '../../background/menus.js';
 
 export function SignInView(props: { services: Services; onSignedIn: () => void }) {
@@ -208,6 +210,7 @@ export function StudioView(props: { services: Services; job: Job; onBack: () => 
   const [turn, setTurn] = useState<AgentTurn>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [refusal, setRefusal] = useState<ControlsRefusal>();
 
   const base = message.trim();
   const fullMessage = `${/[.!?]$/.test(base) ? base : `${base}.`} Keep it about ${length.replace(' s', ' seconds')}, ${format} format${
@@ -216,6 +219,7 @@ export function StudioView(props: { services: Services; job: Job; onBack: () => 
   async function send() {
     setBusy(true);
     setError(undefined);
+    setRefusal(undefined);
     try {
       let current = await api.sendToStudio(fullMessage);
       setTurn(current);
@@ -225,7 +229,9 @@ export function StudioView(props: { services: Services; job: Job; onBack: () => 
       }
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
-      props.onError(failure);
+      // A Model Access rule or a spend limit: shown once, here, with the page that changes it.
+      if (failure instanceof WiroToolError && failure.refusal) setRefusal(failure.refusal);
+      else props.onError(failure);
     } finally {
       setBusy(false);
     }
@@ -258,7 +264,7 @@ export function StudioView(props: { services: Services; job: Job; onBack: () => 
           </div>
         )}
         {outputs.length > 0 && <Outputs outputs={outputs} />}
-        {error && <div class="box err">{error}</div>}
+        {refusal ? <RefusalBox refusal={refusal} site={config.site} openTab={link => platform.openTab(link)} /> : error && <div class="box err">{error}</div>}
         <div class="btnrow">
           <button class="btn sm" onClick={() => platform.openTab(`${config.site}/studio`)}>Open in Wiro Studio <Icon.external /></button>
           {outputs[0]?.url && <button class="btn sm" onClick={() => saveFile(outputs[0]?.url as string, fileNameOf(outputs[0]?.url))}><Icon.download />Download</button>}
@@ -284,7 +290,7 @@ export function StudioView(props: { services: Services; job: Job; onBack: () => 
         <div class="row"><span>Price</span><strong style="font-size:14px">By what Studio runs</strong></div>
         <p>Studio picks the models, makes AI clips and code-made scenes, then joins and captions them. It is billed after the turn and needs at least $10 in your wallet to start.</p>
       </div>
-      {error && <div class="box err">{error}</div>}
+      {refusal ? <RefusalBox refusal={refusal} site={config.site} openTab={link => platform.openTab(link)} /> : error && <div class="box err">{error}</div>}
       <button class="btn pri wide" disabled={busy || !message.trim()} onClick={send}>Send to Studio</button>
       <p class="fine">Every message is a new, billed Studio turn.</p>
     </>

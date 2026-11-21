@@ -1,12 +1,13 @@
 import { WAIT_SECONDS } from '../config.js';
 import { McpError, type McpClient } from '../mcp/client.js';
 import type { Account, AgentTurn, ModelDetail, ModelSummary, TaskResult } from '../types.js';
-import { readRefusal, type ControlsRefusal } from './refusal.js';
+import { findRefusal, type ControlsRefusal } from './refusal.js';
 
 // The Wiro MCP tools the extension uses, with the structured output each one
 // returns. A tool error (isError) becomes an exception with the tool's message.
 // A refusal by a Model Access rule or a spend limit keeps only Wiro's sentence,
-// with the extension's own line for people (refusal.ts).
+// with the extension's own line for people. Wiro's error items in the result's
+// _meta, when the server sends them, say which refusal it is (refusal.ts).
 
 export class WiroToolError extends Error {
   constructor(message: string, readonly refusal?: ControlsRefusal) {
@@ -19,9 +20,9 @@ function cleanToolText(text: string): string {
   return text.replace(/^#+\s*Error\s*/i, '').trim() || 'Wiro could not do that.';
 }
 
-export function toolError(text: string): WiroToolError {
+export function toolError(text: string, meta?: Record<string, unknown>): WiroToolError {
   const cleaned = cleanToolText(text);
-  const refusal = readRefusal(cleaned);
+  const refusal = findRefusal(cleaned, meta);
   return refusal ? new WiroToolError(`${refusal.message} ${refusal.help}`, refusal) : new WiroToolError(cleaned);
 }
 
@@ -38,7 +39,7 @@ export class WiroApi {
 
   private async call<T>(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
     const result = await this.mcp.callTool<T>(name, args, signal);
-    if (result.isError) throw toolError(result.text);
+    if (result.isError) throw toolError(result.text, result.meta);
     if (result.structured === undefined) throw new McpError(`${name} returned no data.`);
     return result.structured;
   }

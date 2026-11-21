@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readRefusal } from '../src/wiro/refusal.js';
 import { toolError, WiroApi, WiroToolError } from '../src/wiro/api.js';
-import type { McpClient } from '../src/mcp/client.js';
+import { McpClient } from '../src/mcp/client.js';
 
 // Tool errors as the hosted Wiro MCP server (@wiro-ai/wiro-mcp 1.9.0) sends them: Wiro's sentence, then the note it
 // writes for AI assistants.
@@ -97,5 +97,95 @@ describe('controls refusals', () => {
     expect((failure as WiroToolError).refusal?.code).toBe(92);
     expect((failure as WiroToolError).message.startsWith(KEY_RULE)).toBe(true);
     expect((failure as WiroToolError).message).not.toMatch(ASSISTANT_WORDS);
+  });
+
+  // Wiro names the work in a known-price refusal: a run, an agent purchase or a workflow.
+  it.each(['run', 'purchase', 'workflow'])('offers a cheaper setting whatever the work is called (%s)', what => {
+    const limit = `This team's monthly spend limit has $2.00 left of $50.00, and this ${what} costs $5.00. It resets on December 1, 2026 at 00:00 UTC.`;
+    const refusal = readRefusal(`Failed to run model: ${limit}`);
+    expect(refusal?.code).toBe(93);
+    expect(refusal?.message).toBe(limit);
+    expect(refusal?.help).toContain('A cheaper setting may fit what is left');
+  });
+});
+
+// Wiro's own error items, as a Wiro MCP server attaches them to a tool error: _meta['ai.wiro/errors'] = [{ code, message }],
+// the message being Wiro's sentence without the note for assistants.
+const ERRORS_META = 'ai.wiro/errors';
+
+// Wordings the extension does not know: neither the note's first words nor the endings of Wiro's sentences.
+const NEW_LIMIT = 'This team\'s monthly spend cap is used up ($500.00 of $500.00). It opens again on December 1, 2026.';
+const NEW_93 = `## Error\n\n${NEW_LIMIT}\n\nThe cap stopped this work. Do not try again; get_controls shows the cap.`;
+const NEW_RULE = 'This API key may not run ByteDance/seedream-5-5.';
+const NEW_92 = `## Error\n\nFailed to run model: ${NEW_RULE} Tell the user which rule blocked it, and do not run another model.`;
+
+function fakeMcpWithMeta(text: string, meta: Record<string, unknown>): McpClient {
+  return { callTool: async () => ({ text, isError: true, meta }) } as unknown as McpClient;
+}
+
+describe('controls refusals from Wiro\'s error items', () => {
+  it('takes the code and Wiro\'s sentence from the items, whatever the text says', () => {
+    const error = toolError(NEW_93, { [ERRORS_META]: [{ code: 93, message: NEW_LIMIT }] });
+    expect(error.refusal?.code).toBe(93);
+    expect(error.refusal?.message).toBe(NEW_LIMIT);
+    expect(error.refusal?.path).toBe('/panel/controls/spend-limits');
+    expect(error.refusal?.help).toBe('Nothing was charged. The account owner, a team admin or the organization owner can raise this '
+      + 'limit on the Spend Limits page.');
+    expect(error.message).toBe(`${NEW_LIMIT} ${error.refusal?.help}`);
+    expect(error.message).not.toMatch(ASSISTANT_WORDS);
+  });
+
+  it('reads a Model Access item whose code comes as a string, after another error', () => {
+    const error = toolError(NEW_92, { [ERRORS_META]: [{ code: 0, message: 'Something else.' }, { code: '92', message: NEW_RULE }] });
+    expect(error.refusal?.code).toBe(92);
+    expect(error.refusal?.message).toBe(NEW_RULE);
+    expect(error.refusal?.path).toBe('/panel/controls/model-access');
+    expect(error.refusal?.help).toContain('This extension runs with the API key of the project you chose when you signed in.');
+    expect(error.message).not.toMatch(ASSISTANT_WORDS);
+  });
+
+  it('takes Wiro\'s sentence from the text when an item has none', () => {
+    const error = toolError(RUN_92, { [ERRORS_META]: [{ code: 92 }] });
+    expect(error.refusal?.code).toBe(92);
+    expect(error.refusal?.message).toBe(KEY_RULE);
+  });
+
+  it('keeps an error with another code as it came', () => {
+    const text = '## Error\n\nFailed to run model: Insufficient balance. Add funds and try again.';
+    const error = toolError(text, { [ERRORS_META]: [{ code: 97, message: 'Insufficient balance. Add funds and try again.' }] });
+    expect(error.refusal).toBeUndefined();
+    expect(error.message).toBe('Failed to run model: Insufficient balance. Add funds and try again.');
+  });
+
+  it('reads the text when the items are missing or not what Wiro sends', () => {
+    for (const meta of [{}, { [ERRORS_META]: 'x' }, { [ERRORS_META]: [] }, { [ERRORS_META]: [null, 'x', { message: 'no code' }] }]) {
+      const error = toolError(RUN_93_LEFT, meta);
+      expect(error.refusal?.code).toBe(93);
+      expect(error.refusal?.message).toBe(LEFT_LIMIT);
+    }
+  });
+
+  it('throws the refusal of a refused run from its items', async () => {
+    const api = new WiroApi(fakeMcpWithMeta(NEW_93, { [ERRORS_META]: [{ code: 93, message: NEW_LIMIT }] }));
+    const failure = await api.runModel('bytedance/seedream-5-5', {}).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(WiroToolError);
+    expect((failure as WiroToolError).refusal?.code).toBe(93);
+    expect((failure as WiroToolError).message.startsWith(NEW_LIMIT)).toBe(true);
+    expect((failure as WiroToolError).message).not.toMatch(ASSISTANT_WORDS);
+  });
+
+  it('passes a tool result\'s _meta on from the MCP answer', async () => {
+    const items = [{ code: 93, message: NEW_LIMIT }];
+    const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+      const { id } = JSON.parse(String(init?.body)) as { id: number };
+      const result = { content: [{ type: 'text', text: NEW_93 }], isError: true, _meta: { [ERRORS_META]: items } };
+      return new Response(`event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', id, result })}\n\n`,
+        { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    }) as typeof fetch;
+    const client = new McpClient('https://mcp.example.test/v1', { accessToken: async () => 'wiro_at_x', recoverFromUnauthorized: async () => false }, fetchImpl);
+    const result = await client.callTool('run_model', {});
+    expect(result.isError).toBe(true);
+    expect(result.text).toBe(NEW_93);
+    expect(result.meta?.[ERRORS_META]).toEqual(items);
   });
 });

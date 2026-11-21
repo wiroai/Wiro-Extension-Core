@@ -25,6 +25,8 @@ export interface ToolResult<T> {
   /** The text content blocks joined, for errors and tools without structured output. */
   text: string;
   isError: boolean;
+  /** The result's _meta, when the server sends one: on a tool error, Wiro's own error items (wiro/refusal.ts). */
+  meta?: Record<string, unknown>;
 }
 
 export interface TokenSource {
@@ -41,6 +43,7 @@ interface JsonRpcResponse {
     content?: Array<{ type: string; text?: string }>;
     structuredContent?: unknown;
     isError?: boolean;
+    _meta?: unknown;
   };
   error?: { code: number; message: string; data?: unknown };
 }
@@ -86,7 +89,10 @@ export class McpClient {
       if (message.error) throw new McpError(message.error.message, message.error.code);
       const result = message.result ?? {};
       const text = (result.content ?? []).filter(block => block.type === 'text').map(block => block.text ?? '').join('\n');
-      return { structured: result.structuredContent as T | undefined, text, isError: result.isError === true };
+      const meta = typeof result._meta === 'object' && result._meta !== null && !Array.isArray(result._meta)
+        ? result._meta as Record<string, unknown>
+        : undefined;
+      return { structured: result.structuredContent as T | undefined, text, isError: result.isError === true, meta };
     }
     throw new AuthRequiredError();
   }

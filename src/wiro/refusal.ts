@@ -6,17 +6,23 @@
 // what to try next and which tools to call. People read the panel, so they get
 // Wiro's sentence and the extension's own line instead of that note.
 //
-// The tool error carries no code, so a refusal is known by its text. The note's
-// first words cut it off (Wiro-MCP 1.7.0 and later). Without them, Wiro's own
-// sentence is enough: a Model Access refusal ends with "Model Access rules decide
-// which models can run.", a spend-limit refusal with when the limit resets. Any
-// other text stays as it came.
+// A server may attach Wiro's own error items to the tool error, as
+// _meta['ai.wiro/errors'] = [{ code, message }], the message being Wiro's
+// sentence without the note. When one of them has a code, the codes decide.
+// Without them, a refusal is known by its text. The note's first words cut it off
+// (Wiro-MCP 1.7.0 and later). Without them, Wiro's own sentence is enough: a
+// Model Access refusal ends with "Model Access rules decide which models can
+// run.", a spend-limit refusal with when the limit resets. Any other text stays
+// as it came.
 
 export const MODEL_ACCESS_CODE = 92;
 export const SPEND_LIMIT_CODE = 93;
 
 export const MODEL_ACCESS_PATH = '/panel/controls/model-access';
 export const SPEND_LIMITS_PATH = '/panel/controls/spend-limits';
+
+/** The _meta key under which a Wiro MCP server attaches Wiro's own error items to a tool error. */
+export const ERRORS_META_KEY = 'ai.wiro/errors';
 
 export interface ControlsRefusal {
   code: typeof MODEL_ACCESS_CODE | typeof SPEND_LIMIT_CODE;
@@ -38,9 +44,26 @@ const SPEND_LIMIT_END = /\bspend limit\b[\s\S]*?\bIt resets (?:at|on)\b[^.]*\bUT
 // What run_model puts before Wiro's sentence.
 const RUN_PREFIX = /^Failed to run model:\s*/i;
 // Work with a known price that does not fit what is left: "has $3.10 left of $5.00, and this run costs $4.00."
+// Wiro calls the work a run, a purchase or a workflow, so the match stops before that word.
 const LEFT_OF = /\bhas \$\d[\d,]*(?:\.\d+)? left of\b/;
 
 const CHANGERS = 'The account owner, a team admin or the organization owner';
+
+/**
+ * The refusal of a tool error, or undefined when it is not one: from Wiro's error items in the result's _meta when
+ * the server sends them, else from the error's text.
+ */
+export function findRefusal(text: string, meta?: Record<string, unknown>): ControlsRefusal | undefined {
+  const items = errorItems(meta);
+  if (!items.length) return readRefusal(text);
+  for (const item of items) {
+    if (!isControlsCode(item.code)) continue;
+    // An item without a sentence takes Wiro's sentence from the text, when the text has one for the same code.
+    const fromText = item.message ? undefined : readRefusal(text);
+    return refusal(item.code, item.message || (fromText?.code === item.code ? fromText.message : ''));
+  }
+  return undefined;
+}
 
 /** The refusal in a tool error's text, or undefined when the text is not one. */
 export function readRefusal(text: string): ControlsRefusal | undefined {
@@ -75,4 +98,32 @@ function refusal(code: ControlsRefusal['code'], wiroText: string): ControlsRefus
     path: rule ? MODEL_ACCESS_PATH : SPEND_LIMITS_PATH,
     label: rule ? 'Open Model Access' : 'Open Spend Limits',
   };
+}
+
+interface ErrorItem {
+  code: number;
+  message: string;
+}
+
+// Wiro's error items that have a code, which may come as a number or as a string.
+function errorItems(meta: Record<string, unknown> | undefined): ErrorItem[] {
+  const items = meta?.[ERRORS_META_KEY];
+  if (!Array.isArray(items)) return [];
+  const found: ErrorItem[] = [];
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+    const code = typeof item['code'] === 'number' ? item['code']
+      : typeof item['code'] === 'string' && item['code'].trim() ? Number(item['code']) : Number.NaN;
+    if (!Number.isFinite(code)) continue;
+    found.push({ code, message: typeof item['message'] === 'string' ? item['message'].trim() : '' });
+  }
+  return found;
+}
+
+function isControlsCode(code: number): code is ControlsRefusal['code'] {
+  return code === MODEL_ACCESS_CODE || code === SPEND_LIMIT_CODE;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

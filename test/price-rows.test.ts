@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PRICE_LIST_META, WiroApi } from '../src/wiro/api.js';
-import type { McpClient } from '../src/mcp/client.js';
+import { McpClient } from '../src/mcp/client.js';
 import { withDefaults } from '../src/gateway/gateway.js';
 import { quote } from '../src/pricing/price.js';
 import type { ModelDetail, ModelParameter, PriceRow } from '../src/types.js';
@@ -38,17 +38,43 @@ const vsr: ModelDetail = {
   parameters: [{ title: '', items: [select('resolution', ['720p', '1080p', '2160p'], { required: true, sample: '1080p' })] }],
 };
 
-function fakeMcp(result: { structured?: unknown; meta?: Record<string, unknown>; isError?: boolean; text?: string }): McpClient {
-  return { callTool: async () => ({ text: result.text ?? 'ok', isError: result.isError ?? false, structured: result.structured, meta: result.meta }) } as unknown as McpClient;
+function fakeMcp(result: { structured?: unknown; meta?: Record<string, unknown>; isError?: boolean; text?: string }, calls: unknown[][] = []): McpClient {
+  return {
+    callTool: async (...args: unknown[]) => {
+      calls.push(args);
+      return { text: result.text ?? 'ok', isError: result.isError ?? false, structured: result.structured, meta: result.meta };
+    },
+  } as unknown as McpClient;
 }
 
 describe('price rows from get_model_schema', () => {
-  it('reads the rows from the result _meta', async () => {
-    const withRows = await new WiroApi(fakeMcp({ structured: { model: veo }, meta: { [PRICE_LIST_META]: VEO_ROWS } })).getModel('google/veo3-1');
+  it('asks for the rows and reads them from the result _meta', async () => {
+    const calls: unknown[][] = [];
+    const withRows = await new WiroApi(fakeMcp({ structured: { model: veo }, meta: { [PRICE_LIST_META]: VEO_ROWS } }, calls)).getModel('google/veo3-1');
     expect(withRows.priceList).toEqual(VEO_ROWS);
+    // Wiro-MCP sends the rows only to a call that asks with `true` under the key in its _meta.
+    expect(calls).toEqual([['get_model_schema', { model: 'google/veo3-1' }, undefined, { 'ai.wiro/priceList': true }]]);
     const without = await new WiroApi(fakeMcp({ structured: { model: veo } })).getModel('google/veo3-1');
     expect(without.priceList).toBeUndefined();
     await expect(new WiroApi(fakeMcp({ isError: true, text: '## Error\n\nModel "a/b" not found.' })).getModel('a/b')).rejects.toThrow('Model "a/b" not found.');
+  });
+
+  it('puts the ask in the tools/call params as _meta, and adds no _meta without one', async () => {
+    const sent: Array<{ params: Record<string, unknown> }> = [];
+    const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+      const message = JSON.parse(String(init?.body)) as { id: number; params: Record<string, unknown> };
+      sent.push(message);
+      const result = { content: [{ type: 'text', text: 'ok' }], structuredContent: { model: veo }, _meta: { [PRICE_LIST_META]: VEO_ROWS } };
+      return new Response(`event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', id: message.id, result })}\n\n`,
+        { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+    }) as typeof fetch;
+    const client = new McpClient('https://mcp.example.test/v1', { accessToken: async () => 'wiro_at_x', recoverFromUnauthorized: async () => false }, fetchImpl);
+    const model = await new WiroApi(client).getModel('google/veo3-1');
+    expect(model.priceList).toEqual(VEO_ROWS);
+    expect(sent[0]?.params).toEqual({ name: 'get_model_schema', arguments: { model: 'google/veo3-1' }, _meta: { 'ai.wiro/priceList': true } });
+    await client.callTool('search_models', { limit: 1 });
+    expect(sent[1]?.params).toEqual({ name: 'search_models', arguments: { limit: 1 } });
+    expect('_meta' in (sent[1]?.params ?? {})).toBe(false);
   });
 
   it('prices the chosen settings, and shows the range until a required one is chosen', () => {

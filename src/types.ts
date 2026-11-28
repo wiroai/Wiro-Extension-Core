@@ -63,7 +63,7 @@ export interface PriceRow {
   maxSeconds?: number;
 }
 
-/** get_model_schema → model. `priceList` appears once Wiro-MCP returns raw rows. */
+/** get_model_schema → model. `priceList` is the model's price rows, from the result's _meta (Wiro-MCP 2.3.0). */
 export interface ModelDetail extends ModelSummary {
   pricingNotes?: string[];
   parameters: Array<{ title: string; items: ModelParameter[] }>;

@@ -92,8 +92,6 @@ function detail(m) {
       }),
     })),
     pricingNotes: [...new Set(rows(m).map(r => oneLine(r.note)).filter(Boolean))],
-    // Price rows; MOCK_NO_PRICELIST=1 serves a model without them.
-    ...(process.env.MOCK_NO_PRICELIST === '1' ? {} : { priceList: rows(m) }),
   };
 }
 
@@ -122,7 +120,8 @@ function tool(name, args) {
     case 'get_model_schema': {
       const m = bySlug.get(args.model);
       if (!m) return { error: `Model "${args.model}" not found.` };
-      return { model: detail(m) };
+      // Price rows go in the result's _meta, as Wiro-MCP 2.3.0 sends them; MOCK_NO_PRICELIST=1 serves a model without them.
+      return { model: detail(m), ...(process.env.MOCK_NO_PRICELIST === '1' || rows(m).length === 0 ? {} : { _meta: { 'ai.wiro/priceList': rows(m) } }) };
     }
     case 'get_account':
       return { workspace: { kind: 'personal' }, balance: { currency: 'USD', totalUsd: 12.4, depositUsd: 12.4, couponCreditUsd: 0, storeRevenueUsd: 0 }, authMode: 'apikey-only' };
@@ -167,10 +166,10 @@ http.createServer((req, res) => {
   req.on('end', () => {
     const message = JSON.parse(body);
     if (!String(req.headers.authorization || '').startsWith('Bearer wiro_at_')) { res.writeHead(401); res.end('{"error":"unauthorized"}'); return; }
-    const out = tool(message.params.name, message.params.arguments || {});
+    const { _meta, ...out } = tool(message.params.name, message.params.arguments || {});
     const result = out.error
       ? { content: [{ type: 'text', text: `## Error\n\n${out.error}` }], isError: true }
-      : { content: [{ type: 'text', text: 'ok' }], structuredContent: out };
+      : { content: [{ type: 'text', text: 'ok' }], structuredContent: out, ...(_meta ? { _meta } : {}) };
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     setTimeout(() => res.end(`event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', id: message.id, result })}\n\n`), message.params.name === 'wait_for_task' ? 1500 : 60);
   });

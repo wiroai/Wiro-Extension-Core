@@ -1,6 +1,6 @@
 import { WAIT_SECONDS } from '../config.js';
 import { McpError, type McpClient } from '../mcp/client.js';
-import type { Account, AgentTurn, ModelDetail, ModelSummary, TaskResult } from '../types.js';
+import type { Account, AgentTurn, ModelDetail, ModelSummary, PriceRow, TaskResult } from '../types.js';
 import { findRefusal, type ControlsRefusal } from './refusal.js';
 
 // The Wiro MCP tools the extension uses, with the structured output each one
@@ -8,6 +8,9 @@ import { findRefusal, type ControlsRefusal } from './refusal.js';
 // A refusal by a Model Access rule or a spend limit keeps only Wiro's sentence,
 // with the extension's own line for people. Wiro's error items in the result's
 // _meta, when the server sends them, say which refusal it is (refusal.ts).
+
+/** The key of get_model_schema's price rows in the tool result's _meta (Wiro-MCP's PRICE_LIST_META_KEY). */
+export const PRICE_LIST_META = 'ai.wiro/priceList';
 
 export class WiroToolError extends Error {
   constructor(message: string, readonly refusal?: ControlsRefusal) {
@@ -51,9 +54,17 @@ export class WiroApi {
     return this.call('search_models', args, signal);
   }
 
+  /**
+   * A model's schema. From Wiro-MCP 2.3.0 the result's _meta carries the model's
+   * price rows (PRICE_LIST_META), which the panel prices row by row.
+   */
   async getModel(slug: string, signal?: AbortSignal): Promise<ModelDetail> {
-    const result = await this.call<{ model: ModelDetail }>('get_model_schema', { model: slug }, signal);
-    return result.model;
+    const result = await this.mcp.callTool<{ model: ModelDetail }>('get_model_schema', { model: slug }, signal);
+    if (result.isError) throw toolError(result.text, result.meta);
+    const model = result.structured?.model;
+    if (!model) throw new McpError('get_model_schema returned no data.');
+    const rows = result.meta?.[PRICE_LIST_META];
+    return Array.isArray(rows) && rows.length > 0 ? { ...model, priceList: rows as PriceRow[] } : model;
   }
 
   /** Starts a run and waits a bounded time. A pending result carries nextAction. */

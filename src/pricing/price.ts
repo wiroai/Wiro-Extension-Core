@@ -166,6 +166,9 @@ function sameValue(expected: unknown, actual: unknown): boolean {
 
 const hasQuantity = (row: PriceRow): boolean => Object.values(row.inputs ?? {}).some(value => quantityOf(value) !== null);
 
+/** A setting with no value: not sent, so no row that names it can match. */
+const isUnset = (value: unknown): boolean => value === undefined || value === null || value === '';
+
 /** The row Wiro bills these settings with, or undefined when none applies. */
 export function matchingRow(rows: PriceRow[], params: Record<string, unknown>): PriceRow | undefined {
   if (!rows.some(hasQuantity)) {
@@ -404,6 +407,11 @@ function quoteAt(model: ModelDetail, params: Record<string, unknown>, context: Q
   const row = matchingRow(rows, params);
   const scaled = rows.map(item => scaleRow(item, scale));
   const current = row ? scaled[rows.indexOf(row)] : undefined;
+  // A setting the rows are priced by has no value yet (a required select without
+  // a default): the summary's "from" price until it is chosen, not the run time.
+  if (!current && rows.some(item => Object.entries(item.inputs ?? {}).some(([key, expected]) => quantityOf(expected) === null && isUnset(params[key])))) {
+    return { ...summaryQuote(model, params, context, scale), options: priceOptions(model, scaled, undefined) };
+  }
   const result = current ? rowQuote(current, model, params, context) : runTimeQuote(model, RUN_TIME, scale);
   return { ...result, options: priceOptions(model, scaled, current) };
 }

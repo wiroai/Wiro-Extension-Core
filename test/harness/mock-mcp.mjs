@@ -23,14 +23,14 @@ function rows(m) {
 
 // The same lines Wiro-MCP's formatPricing writes (src/utils/format.ts), for the
 // methods the catalog uses.
-const UNIT = { cpr: 'per request', cpo: 'per output', 'cp-promptlength': 'per prompt character', 'cp-outputVideoLength': 'per video second', 'cp-audiosecondslength': 'per second of audio in inputAudio', cpt: 'per input and output token' };
+const UNIT = { 'per-run': 'per run', 'per-output-file': 'per output file', 'per-input-character': 'per prompt character', 'per-output-video-second': 'per second of output video', 'per-input-audio-second': 'per second of input audio', 'per-input-video-second': 'per second of input video', 'per-total-token': 'per input and output token' };
 const usd = n => String(parseFloat(Number(n).toFixed(6)));
 const oneLine = text => String(text || '').replace(/\s+/g, ' ').trim();
 
 function pricing(m) {
   const list = rows(m);
   if (list.length) {
-    if (list.some(r => r.priceMethod === 'cp-realtimeturn')) {
+    if (list.some(r => r.priceMethod === 'per-realtime-turn')) {
       const note = list.map(r => oneLine(r.note)).find(Boolean);
       return note ? `Billed turn by turn during the live session. Rates: ${note}` : 'Billed turn by turn during the live session. No fixed price per run.';
     }
@@ -41,10 +41,10 @@ function pricing(m) {
       const lo = Math.min(...prices); const hi = Math.max(...prices);
       parts.push(`${lo === hi ? `$${usd(lo)}` : `$${usd(lo)} to $${usd(hi)}`} / ${UNIT[unit[0].priceMethod]}`);
     }
-    const pixel = list.filter(r => r.priceMethod === 'cp-pixel');
+    const pixel = list.filter(r => r.priceMethod === 'per-output-megapixel');
     if (pixel.length) parts.push(`$${usd(Math.min(...pixel.map(r => Number(r.price))))} per run for an output image up to 1024 x 1024 pixels`);
-    for (const r of list.filter(row => row.priceMethod === 'cp-readoutput')) {
-      const head = Number(r.price) > 0 ? `Set by the run when it ends (listed estimate $${usd(r.price)})` : 'Set by the run when it ends';
+    for (const r of list.filter(row => row.priceMethod === 'reported-price')) {
+      const head = Number(r.price) > 0 ? `Set when the run ends (listed estimate $${usd(r.price)})` : 'Set when the run ends';
       parts.push(oneLine(r.note) ? `${head}: ${oneLine(r.note)}` : `${head}. The finished task shows the cost.`);
     }
     if (parts.length) return [...new Set(parts)].join('; ');
@@ -63,7 +63,7 @@ const DISCOUNTS = new Map(String(process.env.MOCK_DISCOUNT || '').split(',').fil
 function summary(m) {
   const ac = Number(m.approximatelycost);
   const list = rows(m);
-  const metered = list.length && list.every(r => r.priceMethod === 'cp-readoutput') ? (Number(list[0].price) || null) : null;
+  const metered = list.length && list.every(r => r.priceMethod === 'reported-price') ? (Number(list[0].price) || null) : null;
   return {
     slug: slugOf(m), title: m.title, description: m.seodescription || m.description, categories: m.categories || [], pricing: pricing(m),
     estimatedCostUsd: list.length ? metered : (ac || null),

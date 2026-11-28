@@ -157,7 +157,7 @@ describe('gateway', () => {
 
   it('fills defaults for pricing', () => {
     const kling = model([param('mode', 'select', { default: 'std', options: [{ label: 'std', value: 'std' }] }), param('duration', 'select', { default: '5', options: [] })],
-      { priceList: [{ inputs: { mode: 'std', duration: '5' }, price: 0.42, priceMethod: 'cpr' }, { inputs: { mode: 'pro', duration: '5' }, price: 0.56, priceMethod: 'cpr' }] });
+      { priceList: [{ inputs: { mode: 'std', duration: '5' }, price: 0.42, priceMethod: 'per-run' }, { inputs: { mode: 'pro', duration: '5' }, price: 0.56, priceMethod: 'per-run' }] });
     expect(quote(kling, withDefaults(kling, {})).label).toBe('$0.42');
   });
 });
@@ -165,8 +165,8 @@ describe('gateway', () => {
 describe('price', () => {
   const h3Rows = model([], {
     priceList: [
-      { inputs: { resolution: '480P', duration: '5' }, price: 0.125, priceMethod: 'cpr' },
-      { inputs: { resolution: '768P', duration: '5' }, price: 0.2, priceMethod: 'cpr' },
+      { inputs: { resolution: '480P', duration: '5' }, price: 0.125, priceMethod: 'per-run' },
+      { inputs: { resolution: '768P', duration: '5' }, price: 0.2, priceMethod: 'per-run' },
     ],
   });
   it('picks the row for the chosen settings', () => {
@@ -174,18 +174,52 @@ describe('price', () => {
     expect(quote(h3Rows, { resolution: '480P', duration: '5' }).amount).toBe(0.125);
   });
   it('prices per character', () => {
-    const tts = model([], { priceList: [{ inputs: {}, price: 0.00004, priceMethod: 'cp-promptlength' }] });
+    const tts = model([], { priceList: [{ inputs: {}, price: 0.00004, priceMethod: 'per-input-character' }] });
     expect(quote(tts, {}, { promptChars: 66 }).label).toBe('$0.00264');
   });
-  it('prices per output', () => {
-    const nb = model([], { priceList: [{ inputs: { resolution: '1K' }, price: 0.067, priceMethod: 'cpo' }] });
+  it('prices per output file', () => {
+    const nb = model([], { priceList: [{ inputs: { resolution: '1K' }, price: 0.067, priceMethod: 'per-output-file' }] });
     expect(quote(nb, { resolution: '1K', n: '2' }).label).toBe('$0.134');
+    expect(quote(nb, { resolution: '1K', n: '2' }).note).toBe('Your request will cost $0.067 per output file, $0.134 for 2 output files.');
+  });
+  it('prices per second of input audio or video for the clicked file, each input at most maxSeconds', () => {
+    const vsr = model([], { priceList: [
+      { inputs: { resolution: '720p' }, price: 0.015, priceMethod: 'per-input-video-second', maxSeconds: 60 },
+      { inputs: { resolution: '1080p' }, price: 0.025, priceMethod: 'per-input-video-second', maxSeconds: 60 },
+    ] });
+    const short = quote(vsr, { resolution: '1080p' }, { mediaSeconds: 12 });
+    expect([short.label, short.note]).toEqual(['about $0.30', 'Your request will cost $0.30 for 12 seconds of input video.']);
+    expect(short.amount).toBeCloseTo(0.3, 10);
+    const long = quote(vsr, { resolution: '720p' }, { mediaSeconds: 75 });
+    expect([long.label, long.note]).toEqual(['about $0.90', 'Your request will cost $0.90 for 60 seconds of input video. Only the first 60 seconds of each input are processed and billed.']);
+    expect(long.amount).toBeCloseTo(0.9, 10);
+    const unknown = quote(vsr, { resolution: '720p' });
+    expect([unknown.label, unknown.note]).toEqual(['$0.015 / video second', 'Your request will cost $0.015 per second of input video. Each input counts at most 60 seconds.']);
+    expect(unknown.options?.map(option => option.price)).toEqual(['$0.015 / video second, each input at most 60 seconds', '$0.025 / video second, each input at most 60 seconds']);
+
+    const music = model([], { priceList: [{ inputs: {}, price: 0.008, priceMethod: 'per-input-audio-second' }] });
+    expect(quote(music, {}, { mediaSeconds: 30 }).note).toBe('Your request will cost $0.24 for 30 seconds of input audio.');
+    expect(quote(music, {}).label).toBe('$0.008 / audio second');
+    // maxSeconds counts only on the input-length methods.
+    const avatar = model([], { priceList: [{ inputs: {}, price: 0.025, priceMethod: 'per-output-video-second', maxSeconds: 5 }] });
+    expect(quote(avatar, { duration: 10 }).amount).toBeCloseTo(0.25, 10);
+  });
+  it('knows only the price methods Wiro bills by: an old id is billed by run time', () => {
+    for (const old of ['cpr', 'cps', 'cpo', 'cpt', 'cp-pixel', 'cp-promptlength', 'cp-audiosecondslength', 'cp-outputVideoLength', 'cp-realtimeturn', 'cp-readoutput', 'cp', 'cp-request', 'cp-image', 'cp-frame', 'cp-byte']) {
+      const result = quote(model([], { priceList: [{ inputs: {}, price: 0.5, priceMethod: old }] }), {});
+      expect([result.label, result.note], old).toEqual(['by run time', 'No fixed price for these settings. The charge follows the run time.']);
+    }
   });
   it('falls back to the summary', () => {
-    expect(quote(model([], { pricing: '$0.01 / per request' }), {}).label).toBe('$0.01');
+    expect(quote(model([], { pricing: '$0.01 / per run' }), {}).label).toBe('$0.01');
     expect(quote(model([], { pricing: '~$0.022195 per run (estimated)', estimatedCostUsd: 0.022195 }), {}).label).toBe('about $0.022');
-    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: '$0.1 to $0.6 / per request' })).toBe('from $0.10 / run');
-    expect(priceSortKey({ slug: 'a', title: 'a', categories: [], pricing: 'Set by the run when it ends: $0.0021 per 1000 tokens' })).toBe(Number.POSITIVE_INFINITY);
+    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: '$0.1 to $0.6 / per run' })).toBe('from $0.10 / run');
+    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: '$0.14 to $0.24 / per output file' })).toBe('from $0.14 / output');
+    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: '$0.015 to $0.025 / per second of input video' })).toBe('from $0.015 / video second');
+    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: '$0.008 / per second of input audio' })).toBe('$0.008 / audio second');
+    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: '$0 / per run' })).toBe('free');
+    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: 'Set when the run ends (listed estimate $0.02): $1 per 1M input tokens' })).toBe('about $0.02');
+    expect(priceSortKey({ slug: 'a', title: 'a', categories: [], pricing: 'Set when the run ends: $0.0021 per 1000 tokens' })).toBe(Number.POSITIVE_INFINITY);
     expect(priceSortKey({ slug: 'a', title: 'a', categories: [], pricing: '$0.00004 / per prompt character' })).toBe(0.00004);
   });
   it('formats dollars', () => {
@@ -195,9 +229,9 @@ describe('price', () => {
   });
   it('picks the row Wiro bills: the valid row with the highest file count', () => {
     const edit = model([], { priceList: [
-      { inputs: { inputImage: 'QUANTITY:0' }, price: 0.03, priceMethod: 'cpr' },
-      { inputs: { inputImage: 'QUANTITY:1' }, price: 0.04, priceMethod: 'cpr' },
-      { inputs: { inputImage: 'QUANTITY:3' }, price: 0.05, priceMethod: 'cpr' },
+      { inputs: { inputImage: 'QUANTITY:0' }, price: 0.03, priceMethod: 'per-run' },
+      { inputs: { inputImage: 'QUANTITY:1' }, price: 0.04, priceMethod: 'per-run' },
+      { inputs: { inputImage: 'QUANTITY:3' }, price: 0.05, priceMethod: 'per-run' },
     ] });
     expect(quote(edit, {}).amount).toBe(0.03);
     expect(quote(edit, { inputImage: ['a', 'b'] }).amount).toBe(0.04);
@@ -208,37 +242,44 @@ describe('price', () => {
   });
   it('takes the first row whose values all match, like Wiro', () => {
     const rows = model([], { priceList: [
-      { inputs: { quality: 'high' }, price: 0.78, priceMethod: 'cpr' },
-      { inputs: {}, price: 0.52, priceMethod: 'cpr' },
+      { inputs: { quality: 'high' }, price: 0.78, priceMethod: 'per-run' },
+      { inputs: {}, price: 0.52, priceMethod: 'per-run' },
     ] });
     expect(quote(rows, { quality: 'high' }).amount).toBe(0.78);
     expect(quote(rows, { quality: 'standard' }).amount).toBe(0.52);
   });
   it('shows a row note instead of the sentence', () => {
-    const sulphur = model([], { priceList: [{ inputs: { resolution: '1080P' }, price: 0.06, priceMethod: 'cp-outputVideoLength', note: 'Per second $0.06 for 1080P' }] });
+    const sulphur = model([], { priceList: [{ inputs: { resolution: '1080P' }, price: 0.06, priceMethod: 'per-output-video-second', note: 'Per second $0.06 for 1080P' }] });
     const result = quote(sulphur, { resolution: '1080P', duration: '5' });
     expect([result.label, result.note]).toEqual(['$0.30', 'Per second $0.06 for 1080P']);
-    const free = model([], { priceList: [{ inputs: {}, price: 0, priceMethod: 'cpr', note: 'Free for now.' }] });
+    const free = model([], { priceList: [{ inputs: {}, price: 0, priceMethod: 'per-run', note: 'Free for now.' }] });
     expect([quote(free, {}).label, quote(free, {}).note]).toEqual(['Free', 'Free for now.']);
   });
   it('bills by run time when no row matches', () => {
-    const rows = model([], { estimatedCostUsd: 0.05, priceList: [{ inputs: { resolution: '1K' }, price: 0.1, priceMethod: 'cpr' }] });
+    const rows = model([], { estimatedCostUsd: 0.05, priceList: [{ inputs: { resolution: '1K' }, price: 0.1, priceMethod: 'per-run' }] });
     expect(quote(rows, { resolution: '4K' }).label).toBe('about $0.05');
   });
   it('shows the offer price beside the list price', () => {
-    const offer = model([], { discountPercent: 50, priceList: [{ inputs: {}, price: 0.52, priceMethod: 'cpr' }] });
+    const offer = model([], { discountPercent: 50, priceList: [{ inputs: {}, price: 0.52, priceMethod: 'per-run' }] });
     const result = quote(offer, {});
     expect([result.listLabel, result.label, result.amount, result.note]).toEqual(['$0.52', '$0.26', 0.26, 'Running this model on Wiro costs $0.26 in total.']);
     // Without rows the summary's amounts are scaled the same way.
-    const summary = quote(model([], { discountPercent: 50, pricing: '$0.42 to $6.3 / per request' }), {});
+    const summary = quote(model([], { discountPercent: 50, pricing: '$0.42 to $6.3 / per run' }), {});
     expect([summary.listLabel, summary.label, summary.note]).toEqual(['from $0.42', 'from $0.21', 'From $0.21 to $3.15 per run, depending on the settings.']);
   });
   it('reads the summary when there are no rows', () => {
     expect(quote(model([], { pricing: '$0.00004 / per prompt character. Every character of the `prompt` value counts.' }), {}, { promptChars: 66 }).label).toBe('$0.00264');
     expect(quote(model([], { pricing: '$0.0012 per second of run time', estimatedCostUsd: 0.03 }), {}).label).toBe('about $0.03');
-    expect(quote(model([], { pricing: 'Set by the run when it ends (listed estimate $0.02): $1 per 1M input tokens' }), {}).note).toBe('$1 per 1M input tokens');
-    const video = quote(model([], { pricing: '$0.06 / per video second', pricingNotes: ['Per second $0.06 for 1080P'] }), { duration: 10 });
+    expect(quote(model([], { pricing: 'Set when the run ends (listed estimate $0.02): $1 per 1M input tokens' }), {}).note).toBe('$1 per 1M input tokens');
+    const video = quote(model([], { pricing: '$0.06 / per second of output video', pricingNotes: ['Per second $0.06 for 1080P'] }), { duration: 10 });
     expect([video.label, video.note]).toEqual(['$0.60', 'Per second $0.06 for 1080P']);
+    // get_model_schema's line for one price per second of input video, with its cap.
+    const vsr = model([], { pricing: '$0.015 / per second of input video. Every video input counts for its length: `inputVideo`, `inputVideoUrl` and each file of `inputVideoMultiple` and `inputVideoUrlMultiple`. Each input counts at most 60 seconds.' });
+    expect(quote(vsr, {}, { mediaSeconds: 90 }).amount).toBeCloseTo(0.9, 10);
+    expect(quote(vsr, {}, { mediaSeconds: 10 }).amount).toBeCloseTo(0.15, 10);
+    const range = quote(model([], { pricing: '$0.015 to $0.025 / per second of input video' }), {});
+    expect([range.label, range.note]).toEqual(['from $0.015', 'From $0.015 to $0.025 per second of input video, depending on the settings.']);
+    expect(quote(model([], { pricing: '$0.14 / per output file' }), { n: 3 }).label).toBe('$0.42');
   });
 });
 

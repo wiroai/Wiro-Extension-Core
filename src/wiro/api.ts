@@ -9,7 +9,12 @@ import { findRefusal, type ControlsRefusal } from './refusal.js';
 // with the extension's own line for people. Wiro's error items in the result's
 // _meta, when the server sends them, say which refusal it is (refusal.ts).
 
-/** The key of get_model_schema's price rows in the tool result's _meta (Wiro-MCP's PRICE_LIST_META_KEY). */
+/**
+ * The key of get_model_schema's price rows (Wiro-MCP's PRICE_LIST_META_KEY). The
+ * call asks for them with `true` under it in the params' _meta, and the result's
+ * _meta holds them under it. Wiro-MCP sends none without that ask, so the
+ * assistants that read results' _meta never get them.
+ */
 export const PRICE_LIST_META = 'ai.wiro/priceList';
 
 export class WiroToolError extends Error {
@@ -55,11 +60,12 @@ export class WiroApi {
   }
 
   /**
-   * A model's schema. From Wiro-MCP 2.3.0 the result's _meta carries the model's
-   * price rows (PRICE_LIST_META), which the panel prices row by row.
+   * A model's schema. It asks for the model's price rows (PRICE_LIST_META), which
+   * Wiro-MCP 2.3.0 and later put in the result's _meta and the panel prices row
+   * by row. An older server ignores the ask.
    */
   async getModel(slug: string, signal?: AbortSignal): Promise<ModelDetail> {
-    const result = await this.mcp.callTool<{ model: ModelDetail }>('get_model_schema', { model: slug }, signal);
+    const result = await this.mcp.callTool<{ model: ModelDetail }>('get_model_schema', { model: slug }, signal, { [PRICE_LIST_META]: true });
     if (result.isError) throw toolError(result.text, result.meta);
     const model = result.structured?.model;
     if (!model) throw new McpError('get_model_schema returned no data.');

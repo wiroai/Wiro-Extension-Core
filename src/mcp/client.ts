@@ -57,7 +57,9 @@ export class McpClient {
     private readonly fetchImpl: typeof fetch = (...args) => fetch(...args),
   ) {}
 
-  async callTool<T = unknown>(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<ToolResult<T>> {
+  /** `requestMeta` goes in the call's params as `_meta`, such as the ask for get_model_schema's price rows. */
+  async callTool<T = unknown>(name: string, args: Record<string, unknown>, signal?: AbortSignal, requestMeta?: Record<string, unknown>): Promise<ToolResult<T>> {
+    const params = requestMeta ? { name, arguments: args, _meta: requestMeta } : { name, arguments: args };
     for (let attempt = 0; attempt < 2; attempt++) {
       const token = await this.tokens.accessToken();
       if (!token) throw new AuthRequiredError();
@@ -70,7 +72,7 @@ export class McpClient {
           'MCP-Protocol-Version': MCP_PROTOCOL_VERSION,
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } }),
+        body: JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call', params }),
         signal,
       });
       if (response.status === 401) {

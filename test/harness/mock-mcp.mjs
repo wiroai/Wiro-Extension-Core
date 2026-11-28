@@ -106,7 +106,7 @@ function kindOf(url) {
 const runs = new Map();
 let taskId = 1000;
 
-function tool(name, args) {
+function tool(name, args, requestMeta) {
   switch (name) {
     case 'search_models': {
       const cats = args.categories || [];
@@ -120,8 +120,10 @@ function tool(name, args) {
     case 'get_model_schema': {
       const m = bySlug.get(args.model);
       if (!m) return { error: `Model "${args.model}" not found.` };
-      // Price rows go in the result's _meta, as Wiro-MCP 2.3.0 sends them; MOCK_NO_PRICELIST=1 serves a model without them.
-      return { model: detail(m), ...(process.env.MOCK_NO_PRICELIST === '1' || rows(m).length === 0 ? {} : { _meta: { 'ai.wiro/priceList': rows(m) } }) };
+      // Price rows go in the result's _meta when the call asks for them, as Wiro-MCP 2.3.0 sends them;
+      // MOCK_NO_PRICELIST=1 serves a model without them.
+      const asked = requestMeta?.['ai.wiro/priceList'] === true;
+      return { model: detail(m), ...(!asked || process.env.MOCK_NO_PRICELIST === '1' || rows(m).length === 0 ? {} : { _meta: { 'ai.wiro/priceList': rows(m) } }) };
     }
     case 'get_account':
       return { workspace: { kind: 'personal' }, balance: { currency: 'USD', totalUsd: 12.4, depositUsd: 12.4, couponCreditUsd: 0, storeRevenueUsd: 0 }, authMode: 'apikey-only' };
@@ -166,7 +168,7 @@ http.createServer((req, res) => {
   req.on('end', () => {
     const message = JSON.parse(body);
     if (!String(req.headers.authorization || '').startsWith('Bearer wiro_at_')) { res.writeHead(401); res.end('{"error":"unauthorized"}'); return; }
-    const { _meta, ...out } = tool(message.params.name, message.params.arguments || {});
+    const { _meta, ...out } = tool(message.params.name, message.params.arguments || {}, message.params._meta);
     const result = out.error
       ? { content: [{ type: 'text', text: `## Error\n\n${out.error}` }], isError: true }
       : { content: [{ type: 'text', text: 'ok' }], structuredContent: out, ...(_meta ? { _meta } : {}) };

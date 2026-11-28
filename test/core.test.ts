@@ -278,8 +278,34 @@ describe('price', () => {
     expect(quote(vsr, {}, { mediaSeconds: 90 }).amount).toBeCloseTo(0.9, 10);
     expect(quote(vsr, {}, { mediaSeconds: 10 }).amount).toBeCloseTo(0.15, 10);
     const range = quote(model([], { pricing: '$0.015 to $0.025 / per second of input video' }), {});
-    expect([range.label, range.note]).toEqual(['from $0.015', 'From $0.015 to $0.025 per second of input video, depending on the settings.']);
+    expect([range.label, range.note]).toEqual(['from $0.015 / video second', 'From $0.015 to $0.025 per second of input video, depending on the settings.']);
     expect(quote(model([], { pricing: '$0.14 / per output file' }), { n: 3 }).label).toBe('$0.42');
+  });
+  it('turns a per-second range into totals when every setting counts the same seconds', () => {
+    // get_model_schema's line for kandinskylab/kandinsky-6-0-vsr-2-0 (Wiro-MCP 2.1.0): three rates, caps of 60 and 20 seconds.
+    const vsr = model([], { pricing: '$0.015 to $0.1 / per second of input video. Every video input counts for its length: `inputVideo`, `inputVideoUrl` and each file of `inputVideoMultiple` and `inputVideoUrlMultiple`. Each input counts at most 20 or 60 seconds, depending on the settings.' });
+    const short = quote(vsr, { resolution: '1080p' }, { mediaSeconds: 12 });
+    expect([short.label, short.note]).toEqual(['from $0.18', 'From $0.18 to $1.20 for this 12-second video, depending on the settings.']);
+    expect(short.amount).toBeCloseTo(0.18, 10);
+    // Past the 20-second cap the seconds counted depend on the setting, so the rate stays per second.
+    const long = quote(vsr, { resolution: '1080p' }, { mediaSeconds: 75 });
+    expect([long.label, long.note]).toEqual(['from $0.015 / video second', 'From $0.015 to $0.10 per second of input video, depending on the settings. Each input counts at most 20 or 60 seconds, depending on the settings. This video is 75 seconds long.']);
+    expect(long.amount).toBeCloseTo(0.3, 10);
+    const unknown = quote(vsr, {});
+    expect([unknown.label, unknown.amount]).toEqual(['from $0.015 / video second', undefined]);
+
+    const audio = quote(model([], { pricing: '$0.006 to $0.01 / per second of input audio. Every audio input counts for its length: `inputAudio`, `inputAudioUrl` and each file of `inputAudioUrlMultiple`.' }), {}, { mediaSeconds: 30 });
+    expect([audio.label, audio.note]).toEqual(['from $0.18', 'From $0.18 to $0.30 for this 30-second audio clip, depending on the settings.']);
+    const someCapped = quote(model([], { pricing: '$0.006 to $0.01 / per second of input audio. With some settings each input counts at most 20 seconds.' }), {}, { mediaSeconds: 30 });
+    expect(someCapped.label).toBe('from $0.006 / audio second');
+
+    const output = model([], { pricing: '$0.07 to $0.14 / per second of output video' });
+    expect([quote(output, { duration: '10' }).label, quote(output, { duration: '10' }).note]).toEqual(['from $0.70', 'From $0.70 to $1.40 for 10 seconds of output video, depending on the settings.']);
+    expect(quote(output, {}).label).toBe('from $0.07 / video second');
+
+    expect(shortPricing({ slug: 'a', title: 'a', categories: [], pricing: '$0.006 to $0.01 / per second of input audio' })).toBe('from $0.006 / audio second');
+    // A range per run is unchanged.
+    expect(quote(model([], { pricing: '$1.6 to $4.8 / per run' }), { resolution: '4k' }).label).toBe('from $1.60');
   });
 });
 

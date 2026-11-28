@@ -114,8 +114,8 @@ export function shortPricing(model: ModelSummary): string {
   if (estimated) return `about ${formatUsd(Number(estimated[1]))}`;
   const rate = /^\$([0-9.]+(?:e-?\d+)?) per second of run time/i.exec(text);
   if (rate) return `${formatUsd(Number(rate[1]))} / second`;
-  const range = /^\$([0-9.]+(?:e-?\d+)?) to \$[0-9.]+(?:e-?\d+)? \/ per (run|output file|second of output video|second of input video)\b/i.exec(text);
-  if (range) return `from ${formatUsd(Number(range[1]))} / ${SHORT_UNITS[(range[2] ?? '').toLowerCase()] ?? 'run'}`;
+  const range = RANGE.exec(text);
+  if (range) return `from ${formatUsd(Number(range[1]))} / ${SHORT_UNITS[(range[3] ?? '').toLowerCase()] ?? 'run'}`;
   const pixel = /^\$([0-9.]+(?:e-?\d+)?)(?: to \$[0-9.]+)? per run for an output image/i.exec(text);
   if (pixel) return `from ${formatUsd(Number(pixel[1]))} / image`;
   return text
@@ -129,12 +129,17 @@ export function shortPricing(model: ModelSummary): string {
     .replace(/\. Every character.*$/i, '');
 }
 
+// A price that depends on the settings, as Wiro-MCP writes it: "$0.015 to $0.1 /
+// per second of input video".
+const RANGE = /^\$([0-9.]+(?:e-?\d+)?) to \$([0-9.]+(?:e-?\d+)?) \/ per (run|output file|second of output video|second of input video|second of input audio)\b/i;
+
 // A list row's short unit, by the words Wiro-MCP writes after a price range.
 const SHORT_UNITS: Record<string, string> = {
   run: 'run',
   'output file': 'output',
   'second of output video': 'video second',
   'second of input video': 'video second',
+  'second of input audio': 'audio second',
 };
 
 // ---------------------------------------------------------------------------
@@ -443,10 +448,13 @@ export function summaryQuote(model: ModelSummary & { pricingNotes?: string[] }, 
     const cap = /\bEach input counts at most ([0-9.]+) seconds\./i.exec(text)?.[1];
     if (method) return rowQuote({ price: usd(single[1]), priceMethod: method, note: onlyNote, ...(cap ? { maxSeconds: Number(cap) } : {}) }, model, params, context);
   }
-  const range = /^\$([0-9.]+(?:e-?\d+)?) to \$([0-9.]+(?:e-?\d+)?) \/ per (run|output file|second of output video|second of input video)\b/i.exec(text);
+  const range = RANGE.exec(text);
   if (range) {
     const low = usd(range[1]);
-    return { amount: low, approximate: true, label: `from ${formatUsd(low)}`, note: onlyNote ?? `From ${formatUsd(low)} to ${formatUsd(usd(range[2]))} per ${range[3]}, depending on the settings.` };
+    const high = usd(range[2]);
+    const unit = (range[3] ?? '').toLowerCase();
+    if (unit.startsWith('second of ')) return perSecondRange(low, high, unit, text, params, context, onlyNote);
+    return { amount: low, approximate: true, label: `from ${formatUsd(low)}`, note: onlyNote ?? `From ${formatUsd(low)} to ${formatUsd(high)} per ${unit}, depending on the settings.` };
   }
   const estimated = /^~\$([0-9.]+(?:e-?\d+)?) per run/i.exec(text);
   if (estimated) {
@@ -480,4 +488,36 @@ export function summaryQuote(model: ModelSummary & { pricingNotes?: string[] }, 
     return { amount: estimate, approximate: true, label: `about ${formatUsd(estimate)}`, note: `Running this model on Wiro costs approximately ${formatUsd(estimate)} in total. ${VARIES}` };
   }
   return { approximate: true, label: shortPricing(model), note: onlyNote ?? (text || undefined) };
+}
+
+// A price per second whose rate depends on the settings ("$0.015 to $0.1 / per
+// second of input video"). The line does not say which rate goes with which
+// setting, so the panel turns it into totals only when every setting counts the
+// same seconds: the clicked file's length, or the duration the form sets, within
+// every cap the line names ("Each input counts at most 20 or 60 seconds"). A
+// longer file keeps the lowest rate per second, with its length and the caps.
+function perSecondRange(low: number, high: number, unit: string, text: string, params: Record<string, unknown>, context: QuoteContext, onlyNote?: string): PriceQuote {
+  const input = unit.startsWith('second of input ');
+  const media = unit.endsWith('audio') ? 'audio' : 'video';
+  const item = media === 'audio' ? 'audio clip' : 'video';
+  const length = input ? context.mediaSeconds : durationParam(params);
+  const caps = input ? inputCaps(text) : { seconds: [] };
+  const rates = `From ${formatUsd(low)} to ${formatUsd(high)} per ${unit}, depending on the settings.${caps.sentence ? ` ${caps.sentence}` : ''}`;
+  const perSecond = `from ${formatUsd(low)} / ${media} second`;
+  if (length === undefined) return { approximate: true, label: perSecond, note: onlyNote ?? rates };
+  if (caps.seconds.some(cap => length > cap)) {
+    // The amount is the least the run can cost, for the balance check.
+    return { amount: low * Math.min(length, ...caps.seconds), approximate: true, label: perSecond, note: onlyNote ?? `${rates} This ${item} is ${seconds(length)} seconds long.` };
+  }
+  const from = low * length;
+  const what = input ? `this ${seconds(length)}-second ${item}` : `${seconds(length)} seconds of output video`;
+  return { amount: from, approximate: true, label: `from ${formatUsd(from)}`, note: onlyNote ?? `From ${formatUsd(from)} to ${formatUsd(high * length)} for ${what}, depending on the settings.` };
+}
+
+/** The caps on each input that get_model_schema names after a price per second of input audio or video. */
+function inputCaps(text: string): { seconds: number[]; sentence?: string } {
+  const match = /\b(?:Each input|With some settings each input) counts at most ([0-9.]+(?: or [0-9.]+)*) seconds(?:, depending on the settings)?\./i.exec(text);
+  if (!match) return { seconds: [] };
+  const seconds = (match[1] ?? '').split(' or ').map(Number).filter(value => Number.isFinite(value) && value > 0);
+  return { seconds, sentence: match[0] };
 }

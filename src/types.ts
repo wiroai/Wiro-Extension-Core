@@ -59,6 +59,8 @@ export interface PriceRow {
   note?: string;
   priceExtra?: number;
   priceInput?: number;
+  /** On a price per second of input audio or video: the most seconds each input counts. */
+  maxSeconds?: number;
 }
 
 /** get_model_schema → model. `priceList` appears once Wiro-MCP returns raw rows. */
